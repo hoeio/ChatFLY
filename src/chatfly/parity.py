@@ -14,7 +14,7 @@ from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 
 from chatfly.conditioning import token_patterns
-from chatfly.sim import SIMULATORS
+from chatfly.sim import SIMULATORS, dopamine_rule
 
 log = logging.getLogger("chatfly")
 STATES = ["even", "odd"]
@@ -116,7 +116,31 @@ def order_task(sim, pats, cfg, rng):
         for i in rng.permutation(2):
             (a, b), c = seqs[i]
             show(a, b, dan_for(c, sim.n_comp))
-    ok = [decode(sim, show(a, b))[0] == c for (a, b), c in seqs for _ in range(p["n_test"])]
+    dec = [(decode(sim, show(a, b))[0], c) for (a, b), c in seqs for _ in range(p["n_test"])]
+    return {"acc": float(np.mean([d == c for d, c in dec])),
+            "uncertain": float(np.mean([d is None for d, _ in dec]))}
+
+
+def pn_direct(sim, pats, cfg, rng, noisy):
+    """Structural control: the same rule and readout applied to PNs directly (no KC layer).
+    noisy=True samples Poisson PN counts, matching the spiking model's PoissonGroup input."""
+    p, c = cfg["protocol"], cfg["controls"]
+    sec = p["duration_ms"] / 1000.0
+    w = np.full((sim.n_comp, sim.n_pn), sim.w0)
+
+    def rates(stim):
+        return rng.poisson(stim * sec) / sec if noisy else stim
+
+    for _ in range(p["n_train"]):
+        for i in rng.permutation(len(TRANS)):
+            s, x, t = TRANS[i]
+            dopamine_rule(w, rates(pair(pats, s, x)) >= c["pn_active_hz"],
+                          dan_for(STATES.index(t), sim.n_comp), sim.w0, sim.eta_dep, sim.eta_rec)
+    ok = []
+    for s, x, t in TRANS:
+        for _ in range(p["n_test"]):
+            out = w @ rates(pair(pats, s, x))
+            ok.append(out[STATES.index(t)] > out[1 - STATES.index(t)])  # tie = wrong
     return float(np.mean(ok))
 
 
@@ -130,7 +154,7 @@ def run_loop(sim, pats, cfg, rng, length, gap_ms):
     step_ok, track_ok = [], []
     for k in range(length):
         x = "A" if rng.random() < 0.5 else "B"
-        if gap_ms is not None and k > 0:
+        if gap_ms and k > 0:
             sim.present(spont, gap_ms, reset=False)
         out = sim.present(pair(pats, fed, x), dur, reset=gap_ms is None)
         d, _ = decode(sim, out["mbon"])
@@ -162,6 +186,7 @@ def run_seed(args):
     out["step_conf"] = float(np.mean(tt["conf"]))
     out["baseline_pn_linear"] = linear_baseline(tt["X_pn"], tt["y"], ridge, rng)
     out["baseline_kc_linear"] = linear_baseline(tt["X_kc"], tt["y"], ridge, rng)
+    out["pn_direct_rule"] = pn_direct(sim, pats, cfg, rng, noisy=kind == "spiking")
     w_trained = sim.w.copy()
 
     loops = {}
@@ -209,7 +234,9 @@ def summarize(seeds, cfg):
 
     out = {"step_acc": ms([s["step_acc"] for s in seeds]),
            "pair_sparseness": ms([s["pair_sparseness"] for s in seeds]),
-           "order_acc": ms([s["order_acc"] for s in seeds]),
+           "order_acc": ms([s["order_acc"]["acc"] for s in seeds]),
+           "order_uncertain": ms([s["order_acc"]["uncertain"] for s in seeds]),
+           "pn_direct_rule": ms([s["pn_direct_rule"] for s in seeds]),
            "baseline_pn_linear": ms([s["baseline_pn_linear"] for s in seeds]),
            "baseline_kc_linear": ms([s["baseline_kc_linear"] for s in seeds]),
            "controls": {k: ms([s["controls"][k] for s in seeds]) for k in seeds[0]["controls"]},
@@ -232,6 +259,13 @@ def exp_parity(cfg: dict, seed: int) -> dict:
         t0 = time.perf_counter()
         jobs = [(kind, cfg, seed + i) for i in range(cfg["n_seeds"])]
         if cfg.get("workers", 1) > 1 and kind == "spiking":
+            # Compile every model variant once here so worker processes only hit the cache.
+            for sigma in [cfg["spiking"]["noise_sigma_mv"], *cfg["robustness"]["noise_sigma_mv"]]:
+                c2 = copy.deepcopy(cfg)
+                c2["spiking"]["noise_sigma_mv"] = sigma
+                for apl0 in (False, True):
+                    make_sim(kind, c2, seed, g_apl_zero=apl0).present(
+                        np.zeros(cfg["mb"]["n_pn"]), 10.0)
             with ProcessPoolExecutor(cfg["workers"]) as ex:
                 seeds = list(ex.map(run_seed, jobs))
         else:

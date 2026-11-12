@@ -19,6 +19,7 @@ import numpy as np
 import yaml
 
 from chatfly.conditioning import exp_conditioning, token_patterns
+from chatfly.parity import exp_parity
 from chatfly.sim import SIMULATORS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -91,7 +92,7 @@ def exp_bench(cfg: dict, seed: int) -> dict:
     return {"duration_ms": cfg["duration_ms"], "rows": rows}
 
 
-EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning}
+EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning, "parity": exp_parity}
 
 
 def main(argv=None) -> Path:

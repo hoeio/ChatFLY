@@ -17,6 +17,14 @@ def pn_kc_claws(n_pn: int, n_kc: int, claws: int, rng) -> np.ndarray:
     return np.array([rng.choice(n_pn, claws, replace=False) for _ in range(n_kc)])
 
 
+def dopamine_rule(w, act, dan, w0, eta_dep, eta_rec):
+    """ADR 0004. In place on w[:, act]: depress on input x DAN coincidence, recover toward w0
+    when the input is active and the compartment's DAN is silent."""
+    d = dan[:, None]
+    x = w[:, act]
+    w[:, act] = x - eta_dep * d * x + eta_rec * (1 - d) * (w0 - x)
+
+
 class Simulator(ABC):
     """`present(pn_rates_hz, duration_ms, dan=None, reset=True)`
     -> {"pn": Hz (n_pn,), "kc": Hz (n_kc,), "mbon": Hz (n_mbon,)}.
@@ -51,11 +59,8 @@ class Simulator(ABC):
         return out
 
     def learn(self, kc_rates, dan):
-        """Depress on KC x DAN coincidence; recover toward w0 when KC is active and DAN silent."""
-        act = kc_rates >= self.kc_active_hz
-        d = dan[:, None]
-        w = self.w[:, act]
-        self.w[:, act] = w - self.eta_dep * d * w + self.eta_rec * (1 - d) * (self.w0 - w)
+        dopamine_rule(self.w, kc_rates >= self.kc_active_hz, dan, self.w0, self.eta_dep,
+                      self.eta_rec)
 
     @abstractmethod
     def _run(self, pn_rates_hz, duration_ms, reset) -> dict[str, np.ndarray]: ...

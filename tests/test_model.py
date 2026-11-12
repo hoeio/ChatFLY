@@ -60,3 +60,15 @@ def test_run_writes_artifacts(tmp_path):
     assert "rate" in json.loads((run_dir / "metrics.json").read_text())
     if meta["commit"].endswith("-dirty"):
         assert (run_dir / "patch.diff").exists()
+
+
+def test_parity_rate_seed():
+    from chatfly.parity import delta, run_seed
+
+    assert [delta(s, x) for s in ("even", "odd") for x in "AB"] == ["odd", "even", "even", "odd"]
+    cfg = yaml.safe_load((CFG.parent / "phase2_parity.yaml").read_text())
+    cfg["mb"]["n_kc"] = 400
+    cfg["loop"].update(lengths=[10], n_seq=2)
+    out = run_seed(("rate", cfg, 0))
+    assert out["step_acc"] == 1.0 and out["loop"]["10"]["seq_ok"] == 1.0
+    assert out["controls"]["teacher_shuffle"] < 1.0

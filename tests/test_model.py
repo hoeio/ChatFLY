@@ -85,7 +85,13 @@ def test_flywire_wiring_and_controls():
         pytest.skip("FlyWire data not downloaded (data/README.md)")
     real = build_wiring(cfg, np.random.default_rng(0))
     assert real["n_kc"] > 2000 and real["n_pn"] > 100 and real["mask"] is not None
-    np.testing.assert_allclose(real["mask"].sum(1), real["n_kc"])  # per-MBON drive normalized
+    for g in range(2):  # mbon_norm: group -> mean MBON drive n_kc within each output group
+        np.testing.assert_allclose(real["mask"][real["mbon_comp"] == g].sum(1).mean(), real["n_kc"])
+    assert (real["mbon_comp"] == 0).sum() > 10 and (real["mbon_comp"] == 1).sum() > 10
+    cfg["connectome"]["mbon_norm"] = "per_mbon"
+    np.testing.assert_allclose(build_wiring(cfg, np.random.default_rng(0))["mask"].sum(1),
+                               real["n_kc"])
+    cfg["connectome"]["mbon_norm"] = "group"
     cfg["mb"]["wiring"] = "shuffle"
     sh = build_wiring(cfg, np.random.default_rng(0))
     for a, b in [("kc_edge", "kc_edge"), ("pn_edge", "pn_edge")]:  # degrees preserved

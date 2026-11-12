@@ -1,0 +1,102 @@
+# Phase 3 / Gate C part 2: contribution of structural components. Transition table only,
+# real wiring vs controls and ablations, under increasing membrane noise (all variants are at
+# ceiling at the default noise in Phase 2, so differences can only show under stress).
+# Sources: docs/04-research-notes.md. "arbitrary" = arbitrary default, tuned for Gate A only.
+experiment: parity_table
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+variants:
+  - {name: real, set: {}}
+  - {name: shuffle, set: {mb.wiring: shuffle}}          # degree-preserving PN->KC shuffle
+  - {name: random, set: {mb.wiring: random}}            # same number of PN->KC edges, uniform
+  - {name: apl_uniform, set: {mb.apl_uniform: true}}    # real APL wiring -> uniform
+  - {name: apl_off, set: {rate.g_apl: 0.0, spiking.g_apl_mv: 0.0}}
+  - {name: kc_mbon_all, set: {mb.kc_mbon_all_to_all: true}}  # real KC->MBON mask -> all-to-all
+grid:
+  spiking.noise_sigma_mv: [2.0, 4.0, 6.0, 8.0]
+seed: 0
+n_seeds: 10                # docs/03-validation.md: >= 10 seeds
+simulators: [spiking]
+workers: 10               # parallel seed processes for the spiking model
+warmup_ms: 10.0            # compile-only warm-up run before workers start
+rng_streams: {tokens: 10000, task: 20000, noise: 1000}  # stream offsets: tokens/task = seed + offset; noise = seed * noise + k
+
+mb:
+  source: flywire          # real PN->KC edges, KC->MBON mask, per-KC APL weights (ADR 0006)
+  compartments: [even, odd]  # one-hot output groups; real MBON types are dealt to them per seed
+
+connectome:                # data/README.md
+  dir: data/flywire_783
+  connections: proofread_connections_783.feather
+  annotations: Supplemental_file1_neuron_annotations.tsv
+  col_pre: pre_pt_root_id
+  col_post: post_pt_root_id
+  col_syn: syn_count
+  side: right
+  min_synapses: 5          # arbitrary: a PN->KC pair with >= 5 synapses counts as one claw; also the KC->MBON mask threshold
+  kc_min_claws: 1          # keep KCs with >= 1 uniglomerular-PN claw (drops non-olfactory KCs)
+
+tokens:
+  names: [even, odd, A, B]  # state tokens + input tokens; (S, x) is presented as the union
+  pn_active_frac: 0.15     # arbitrary: union of two tokens ~ 0.28 of PNs -> P(>=3 of 5 claws) ~ 14%
+  pn_on_hz: 200.0          # arbitrary (PN odor response rates unverified)
+  pn_spont_hz: 2.0         # arbitrary
+
+plasticity:                # ADR 0004 (trial-level rule; recovery term is an assumption)
+  w0: 1.0                  # arbitrary baseline weight (relative units)
+  eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
+  eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
+  elig_ref_hz: 20.0        # graded eligibility (ADR 0005); arbitrary, chosen on held-out seeds 10-19
+
+readout:
+  kc_active_hz: 2.0        # arbitrary: KC counted active (= 1 spike in a 500 ms window)
+  uncertain_band: 0.1      # arbitrary: |valence| below this -> "uncertain"
+
+rate:                      # rate model only (no noise)
+  w_pn_kc: 1.0             # arbitrary
+  kc_theta: 450.0          # arbitrary: between 2 and 3 active claws (2*200 vs 3*200 Hz)
+  kc_gain: 0.1            # arbitrary: ~10 Hz for a 3-claw KC, like the spiking model
+  g_apl: 20.0              # arbitrary
+  mbon_gain: 20.0          # arbitrary
+
+spiking:                   # Brian2 LIF (ADR 0003); time constants unverified
+  dt_ms: 0.1
+  codegen_target: cython
+  v_rest_mv: -70.0
+  v_reset_mv: -70.0
+  v_thresh_mv: -50.0
+  refractory_ms: 2.0
+  noise_sigma_mv: 2.0      # arbitrary background membrane noise
+  tau_kc_ms: 10.0
+  tau_mbon_ms: 20.0
+  tau_apl_ms: 20.0
+  w_pn_kc_mv: 2.0
+  g_apl_mv: 0.03
+  w_kc_mbon_mv: 1.0
+
+protocol:
+  duration_ms: 500.0       # arbitrary presentation window (one loop step)
+  n_test: 20               # test presentations per transition (no plasticity)
+  n_train: 20              # training epochs over the 4 transitions (as validated in ADR 0005)
+
+order:                     # 2a: AB vs BA, readout integrates both segments
+  segment_ms: [10.0, 30.0, 250.0]  # swept: short segments let membrane/APL carry-over (tau 10-20 ms) matter
+  n_train: 10
+  n_test: 10
+
+loop:                      # 2c: closed loop, each step from rest
+  lengths: [10, 50, 100]
+  n_seq: 10                # sequences per length per seed
+  p_input_a: 0.5           # probability that a step's input is A (else B)
+
+robustness:                # 2d: spiking only
+  length: 50
+  n_seq: 5
+  gaps_ms: [0.0, 50.0, 200.0]       # carry-over between steps with spontaneous input in the gap
+  noise_sigma_mv: [1.0, 4.0, 8.0]   # membrane noise levels (default 2.0)
+
+controls:
+  ridge: 1.0               # arbitrary ridge for the linear-classifier baselines
+  pn_active_hz: 20.0       # arbitrary: PN counted active in the PN-direct control (spont 2, on 200)
+
+gate:
+  step_acc_target: 0.99    # docs/02-roadmap.md Gate B target

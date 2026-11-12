@@ -249,16 +249,21 @@ def run_seed(args):
 
 def exp_parity_table(cfg: dict, seed: int) -> dict:
     """Train + test the transition table only, for cfg["seeds"], in parallel. Optional
-    cfg["grid"] = {"section.key": [values, ...]} runs every combination (a sweep)."""
+    cfg["grid"] = {"section.key": [values, ...]} runs every combination (a sweep); optional
+    cfg["variants"] = [{"name": ..., "set": {"section.key": value}}] is crossed with it."""
     import itertools
 
     grid = cfg.get("grid", {})
     combos = [dict(zip(grid, v, strict=True)) for v in itertools.product(*grid.values())] or [{}]
+    variants = cfg.get("variants", [{"name": "base", "set": {}}])
+    combos = [{"variant": v["name"], **v["set"], **g} for v in variants for g in combos]
     out = []
     for kind in cfg["simulators"]:
         for combo in combos:
             c2 = copy.deepcopy(cfg)
             for path, v in combo.items():
+                if path == "variant":
+                    continue
                 sec, key = path.split(".")
                 c2[sec][key] = v
             with ProcessPoolExecutor(cfg["workers"]) as ex:

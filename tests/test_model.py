@@ -72,3 +72,23 @@ def test_parity_rate_seed():
     out = run_seed(("rate", cfg, 0))
     assert out["step_acc"] == 1.0 and out["loop"]["10"]["seq_ok"] == 1.0
     assert out["controls"]["teacher_shuffle"] < 1.0
+
+
+def test_flywire_wiring_and_controls():
+    import pytest
+
+    from chatfly.sim import build_wiring
+
+    cfg = yaml.safe_load((CFG.parent / "phase3_parity_flywire.yaml").read_text())
+    data = Path(__file__).resolve().parents[1] / cfg["connectome"]["dir"]
+    if not (data / cfg["connectome"]["connections"]).exists():
+        pytest.skip("FlyWire data not downloaded (data/README.md)")
+    real = build_wiring(cfg, np.random.default_rng(0))
+    assert real["n_kc"] > 2000 and real["n_pn"] > 100 and real["mask"] is not None
+    np.testing.assert_allclose(real["mask"].sum(1), real["n_kc"])  # per-MBON drive normalized
+    cfg["mb"]["wiring"] = "shuffle"
+    sh = build_wiring(cfg, np.random.default_rng(0))
+    for a, b in [("kc_edge", "kc_edge"), ("pn_edge", "pn_edge")]:  # degrees preserved
+        assert (np.bincount(real[a]) == np.bincount(sh[b], minlength=len(np.bincount(real[a])))).all()
+    assert len(set(zip(sh["kc_edge"], sh["pn_edge"]))) == len(sh["kc_edge"])  # no duplicates
+    assert (real["pn_edge"] != sh["pn_edge"]).mean() > 0.5

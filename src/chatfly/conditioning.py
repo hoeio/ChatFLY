@@ -14,7 +14,13 @@ log = logging.getLogger("chatfly")
 
 def token_patterns(cfg: dict, rng) -> dict[str, np.ndarray]:
     """Each token drives a random subset of PNs at pn_on_hz; all other PNs fire at pn_spont_hz."""
-    t, n_pn = cfg["tokens"], cfg["mb"]["n_pn"]
+    t = cfg["tokens"]
+    if cfg["mb"].get("source", "synthetic") == "flywire":
+        from chatfly.connectome import load_mb
+
+        n_pn = load_mb(cfg["connectome"])["n_pn"]
+    else:
+        n_pn = cfg["mb"]["n_pn"]
     k = round(t["pn_active_frac"] * n_pn)
     pats = {}
     for name in t["names"]:

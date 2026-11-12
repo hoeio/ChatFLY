@@ -53,7 +53,12 @@ def random_edges(n_pn, n_kc, n_edges, rng):
 
 def build_wiring(cfg: dict, rng) -> dict:
     """{"n_pn", "n_kc", "pn_edge", "kc_edge", "mbon_comp" (compartment per MBON),
-    "mask" (n_mbon, n_kc) bool or None = all-to-all, "apl_in"/"apl_out" (n_kc,) mean 1}.
+    "mask" (n_mbon, n_kc) KC->MBON weight factors or None = all-to-all with factor 1,
+    "apl_in"/"apl_out" (n_kc,) mean 1}.
+
+    Real KC->MBON factors are synapse counts (pairs >= min_synapses), scaled so every MBON's
+    row sums to n_kc: the same total drive as an all-to-all MBON, so the configured gains keep
+    their meaning, while relative strengths and which KCs reach which MBON stay real (ADR 0006).
 
     mb.source: "synthetic" | "flywire". mb.wiring: "real" (default) | "shuffle" | "random".
     mb.apl_uniform / mb.kc_mbon_all_to_all: ablations of the real APL / KC->MBON structure."""
@@ -65,13 +70,15 @@ def build_wiring(cfg: dict, rng) -> dict:
         c = load_mb(cfg["connectome"])
         n_pn, n_kc = c["n_pn"], c["n_kc"]
         pn, kc = c["pn_edge"].copy(), c["kc_edge"].copy()
+        counts = np.where(c["kc_mbon"] >= cfg["connectome"]["min_synapses"], c["kc_mbon"], 0)
+        fed = counts.sum(1) > 0  # drop MBONs with no KC input: they cannot carry an output
+        mask = counts[fed] * (n_kc / counts[fed].sum(1, keepdims=True))
         # Output groups: whole MBON types, shuffled, then dealt to compartments in turn
         # (arbitrary grouping, varies with the seed; ADR 0006).
-        types = np.array(c["mbon_type"])
+        types = np.array(c["mbon_type"])[fed]
         uniq = rng.permutation(np.unique(types))
         comp_of_type = {t: i % n_comp for i, t in enumerate(uniq)}
         mbon_comp = np.array([comp_of_type[t] for t in types])
-        mask = c["kc_mbon"] >= cfg["connectome"]["min_synapses"]
         apl_in, apl_out = c["kc_to_apl"], c["apl_to_kc"]
     else:
         n_pn, n_kc = mb["n_pn"], mb["n_kc"]
@@ -217,6 +224,8 @@ class SpikingSimulator(Simulator):
         else:
             j, i = np.nonzero(self.mask)
             self.kc_mbon.connect(i=i, j=j)
+        self.syn_factor = (np.ones(len(self.kc_mbon)) if self.mask is None
+                           else self.mask[np.asarray(self.kc_mbon.j[:]), np.asarray(self.kc_mbon.i[:])])
         self.syn_comp = self.mbon_comp[np.asarray(self.kc_mbon.j[:])]
         self.syn_kc = np.asarray(self.kc_mbon.i[:])
         self.w_scale = s["w_kc_mbon_mv"] * mV
@@ -237,7 +246,7 @@ class SpikingSimulator(Simulator):
         mons = (self.pn_spk, self.kc_spk, self.mbon_spk)
         before = [np.asarray(m.count[:]) for m in mons]
         self.pn.rates = pn_rates_hz * b2.Hz
-        self.kc_mbon.w = self.w[self.syn_comp, self.syn_kc] * self.w_scale
+        self.kc_mbon.w = self.w[self.syn_comp, self.syn_kc] * self.syn_factor * self.w_scale
         self.net.run(duration_ms * b2.ms)
         sec = duration_ms / 1000.0
         return {k: (np.asarray(m.count[:]) - b0) / sec

@@ -44,3 +44,16 @@
 - **Whole-brain LIF:** Shiu et al. 2024, Nature 634:210–219, doi 10.1038/s41586-024-07763-9. Official code link not verified. A community reimplementation exists: https://github.com/eonsystemspbc/fly-brain (Brian2 / NEST GPU / Brian2GeNN backends).
 - **Simulators:** Brian2 2.11.0 (requires Python ≥ 3.13); NEST 3.10 (2026, pip-installable). Brian2CUDA / Brian2GeNN current status unverified. See ADR 0003.
 - Still unverified: membrane/synaptic time constants, eligibility-trace time constant, glomerulus odor response profiles, configural learning, sequence learning, Krohn–Rhodes references.
+
+### 2026-11-12 (Phase 3): measured directly from FlyWire v783 data
+
+Source: Zenodo 10676866 (`proofread_connections_783.feather`) plus flywire_annotations `Supplemental_file1_neuron_annotations.tsv`; see `data/README.md`. These are counts from the data, not literature values.
+
+- Annotated neurons: 139,248. Kenyon cells: 2,597 right / 2,566 left (5,177 in total, including 14 without a side: KCg 1,271 R / 1,219 L, KCab 799 R / 844 L, 527 R / 517 L with no subclass label). This is more than the "~2000 per hemisphere" of Aso 2014.
+- Uniglomerular ALPNs 139 R / 138 L; multiglomerular 201 R / 199 L. This is consistent with "~150 uPNs" (Choi 2022) and with the FAFB count of more multiglomerular PNs.
+- MBONs 48 per side, 35 types; DANs 165–166 per side; 1 APL per side (GABA).
+- Right MB, claw = uPN→KC pair with ≥ 5 synapses: 2,329 KCs have ≥ 1 claw; 4.23 ± 1.61 claws per KC (range 1–9). PN fan-out is very uneven, from 0 to 480 KCs per PN (mean 70.8), which visibly departs from uniform random wiring (cf. Zheng 2022).
+- KC→MBON (≥ 5 synapses): 146 KCs per MBON on average (0–957); 93% of KCs reach at least one MBON; 13 of 48 MBONs receive no KC input above threshold.
+- KC↔APL: every olfactory KC connects to APL in both directions (21.7 and 17.6 synapses per KC on average).
+- KC→KC: 153,139 synapses, but only 648 pairs have ≥ 5 synapses (weak and diffuse).
+- License note: the Zenodo record is CC BY 4.0; FlyWire states CC BY-NC 4.0 for its data in general. The annotations repo has no license file but asks for citations.

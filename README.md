@@ -25,4 +25,4 @@ A project to teach a very simple structured "language" to a **connectome-based s
 
 ## Status
 
-Early design stage. No code yet. The starting point is Phase 0 in `docs/02-roadmap.md`.
+Phase 0 (foundations) done: shared `Simulator` interface (rate + Brian2 spiking), run pipeline (`python -m chatfly.run configs/<name>.yaml`), run-time estimate in `docs/notes/phase0-runtime.md`. Next: Phase 1.

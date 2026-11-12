@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "chatfly"
 version = "0.0.1"
 description = "Connectome-based digital fly (mushroom body) language learning and chat interface"
-requires-python = ">=3.11"
+requires-python = ">=3.13"  # brian2 2.11 needs 3.13 (ADR 0003)
 dependencies = [
     "numpy",
     "scipy",
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-sim = ["brian2"]
+sim = ["brian2>=2.11"]
 dev = ["pytest", "ruff"]
 
 [tool.setuptools.packages.find]

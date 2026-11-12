@@ -37,7 +37,7 @@ Follow the phase order in `docs/02-roadmap.md`. Each phase has **acceptance crit
 
 ## Development rules
 
-- Python 3.11+, package in `src/chatfly/`. Tests with `pytest`, linting with `ruff`.
+- Python 3.13+ (required by Brian2, ADR 0003), package in `src/chatfly/`. Tests with `pytest`, linting with `ruff`.
 - Everything in this repository is written in English: code, identifiers, comments, documentation, and commit messages.
 - Simulator candidates: Brian2 (including GPU backends) or NEST. Record the rationale for the choice as an ADR in `docs/decisions/`. Verify versions and support status yourself.
 - Write an ADR as `docs/decisions/NNNN-title.md` for each meaningful design decision (template: `docs/decisions/0000-template.md`).

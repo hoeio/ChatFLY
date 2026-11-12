@@ -9,6 +9,10 @@ This is where external connectome data (FlyWire / Codex, etc.) is placed. The co
 - License and terms of use (record after checking)
 - Tables / columns used and preprocessing method
 
+## License (checked 2026-11-12)
+
+FlyWire published data: CC BY-NC 4.0 (non-commercial, attribution). Follow the citing guidelines at https://flywire.ai/guidelines . Codex (https://codex.flywire.ai) requires a Google login and agreement to the FlyWire ToS. Not downloaded yet.
+
 ## Notes
 
 The work environment's network is allowlist-based, so FlyWire access may be blocked. If blocked, ask the user to provide the files.

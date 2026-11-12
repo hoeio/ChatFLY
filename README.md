@@ -25,4 +25,9 @@ A project to teach a very simple structured "language" to a **connectome-based s
 
 ## Status
 
-Phase 0 (foundations) done: shared `Simulator` interface (rate + Brian2 spiking), run pipeline (`python -m chatfly.run configs/<name>.yaml`), run-time estimate in `docs/notes/phase0-runtime.md`. Next: Phase 1.
+- Phase 0 (foundations): done. `docs/notes/phase0-runtime.md`
+- Phase 1 (conditioning, synthetic MB): Gate A pass. `docs/notes/phase1-gate-a.md`
+- Phase 2 (parity loop): Gate B failed with the first rule, then passed after a user-approved rule change (graded eligibility, ADR 0005). `docs/notes/phase2-gate-b.md`
+- Phase 3 (FlyWire connectome): waiting for data (see `data/README.md`).
+
+Run an experiment: `python -m chatfly.run configs/<name>.yaml` (results in `results/<run_id>/`).

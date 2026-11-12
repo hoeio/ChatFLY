@@ -202,27 +202,45 @@ class PNDirect:
         return {"mbon": self.w @ r}
 
 
+class WeightSlot:
+    """One fly's KC layer with its own KC->MBON weight matrix: swapped in for each present."""
+
+    def __init__(self, sim):
+        self.sim, self.w = sim, np.full_like(sim.w, sim.w0)
+        self.mbon_comp, self.n_comp, self.n_kc, self.n_pn = sim.mbon_comp, sim.n_comp, sim.n_kc, sim.n_pn
+
+    def present(self, stim, dur, dan=None):
+        self.sim.w = self.w  # learn() updates this array in place
+        return self.sim.present(stim, dur, dan)
+
+
 class Flies:
     """arch: "single" (one fly), "big" (one fly with k x n_kc KCs: size-matched control),
     "ensemble" (k flies, different wiring, same teaching; group rates summed: fixed rule),
     "routed" (one fly per input token; the input selects the fly: fixed routing rule),
-    "routed_pn" (control: routed, each specialist is the rule on PNs without a KC layer)."""
+    "routed_pn" (control: routed, each specialist is the rule on PNs without a KC layer),
+    "routed_shared" (control: routed, one fly whose KC->MBON weights are a separate set per
+    input: the same router glue with a single KC layer)."""
 
     def __init__(self, kind, cfg, task, seed, arch, k):
         rs = cfg["rng_streams"]
-        if arch == "big":
-            cfg = copy.deepcopy(cfg)
-            cfg["mb"]["n_kc"] *= k
+        if arch == "big":  # k x KCs; spiking APL and KC->MBON drives are per-spike sums, so
+            cfg = copy.deepcopy(cfg)  # scale them by 1/k to keep the operating regime (the rate
+            cfg["mb"]["n_kc"] *= k    # model already normalizes by n_kc)
+            cfg["spiking"]["w_kc_mbon_mv"] /= k
+            cfg["spiking"]["g_apl_mv"] /= k
         n = len(task["inputs"]) if arch == "routed" else (k if arch == "ensemble" else 1)
-        n = 1 if arch == "routed_pn" else n
+        n = 1 if arch in ("routed_pn", "routed_shared") else n
         # fly i gets its own wiring seed; fly 0 is the single fly of the same seed
         self.sims = [SIMULATORS[kind](cfg, seed + i * rs["fly"], noise_seed=seed * rs["noise"] + i)
                      for i in range(n)]
         self.arch, self.inputs, self.dur = arch, task["inputs"], cfg["protocol"]["duration_ms"]
         if arch == "routed_pn":  # control: routed, but each "fly" is the rule on PNs (no KCs)
             self.sims = [PNDirect(self.sims[0], cfg, len(task["states"]),
-                                  np.random.default_rng(seed + rs["task"] + 1), kind == "spiking")
-                         for _ in task["inputs"]]
+                                  np.random.default_rng([seed, rs["fly"], i]), kind == "spiking")
+                         for i in range(len(task["inputs"]))]
+        if arch == "routed_shared":  # control: routed, ONE fly (one KC layer) with a separate
+            self.sims = [WeightSlot(self.sims[0]) for _ in task["inputs"]]  # KC->MBON w per input
 
     def _which(self, x):
         return [self.sims[self.inputs.index(x)]] if self.arch.startswith("routed") else self.sims

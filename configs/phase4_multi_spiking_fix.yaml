@@ -1,0 +1,78 @@
+# Phase 4 step 2, review fixes (ADR 0008): big with per-spike drives scaled by 1/k, routed_pn with
+# independent noise per specialist, and the routed_shared control (one KC layer, w per input). Synthetic MB,
+# all parameters at the Gate B values. Sources: docs/04-research-notes.md. "arbitrary" = arbitrary default.
+experiment: multi_fly
+seed: 0
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+simulators: [spiking]
+warmup_ms: 10.0            # compile-only warm-up run before workers start
+workers: 10               # parallel seed processes for the spiking model
+rng_streams: {tokens: 10000, task: 20000, noise: 1000, table: 30000, fly: 100}  # table = seed + offset (random DFAs); fly i wiring seed = seed + i * fly
+
+tasks:                     # where one fly failed in step 1 (phase4_sweep_rate)
+  - {kind: random, n_states: 4, n_inputs: 3}
+  - {kind: random, n_states: 6, n_inputs: 3}
+archs:
+  - {arch: big, k: 3}         # one fly with 3 x n_kc KCs; APL and KC->MBON drives scaled by 1/3
+  - {arch: routed_pn}         # control: routed, no KC layer (rule on PNs), independent noise
+  - {arch: routed_shared}     # control: routed, ONE fly with a KC->MBON weight set per input
+
+mb:
+  n_pn: 150                # ~150 uniglomerular PNs (Choi 2022); FAFB counts more incl. multiglomerular
+  n_kc: 2000               # ~2000 KCs per hemisphere (Aso 2014)
+  claws_per_kc: 5          # EM 5.2 +- 1.6 claws per KC (Zheng 2022)
+  compartments: []         # set per task: one output group per state (fsm.task_cfg)
+  mbon_per_compartment: 4  # arbitrary (34 MBON cells / 21 types per hemisphere, Aso 2014)
+
+tokens:
+  names: []                # set per task: state tokens + input tokens (fsm.task_cfg)
+  pn_active_frac: 0.15     # arbitrary: union of two tokens ~ 0.28 of PNs -> P(>=3 of 5 claws) ~ 14%
+  pn_on_hz: 200.0          # arbitrary (PN odor response rates unverified)
+  pn_spont_hz: 2.0         # arbitrary
+
+plasticity:                # ADR 0004 (trial-level rule; recovery term is an assumption)
+  w0: 1.0                  # arbitrary baseline weight (relative units)
+  eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
+  eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
+  elig_ref_hz: 20.0        # graded eligibility (ADR 0005); arbitrary, chosen on held-out seeds 10-19
+
+readout:
+  kc_active_hz: 2.0        # arbitrary: KC counted active (= 1 spike in a 500 ms window)
+  uncertain_band: 0.1      # arbitrary: |valence| below this -> "uncertain"
+
+rate:                      # rate model only (no noise)
+  w_pn_kc: 1.0             # arbitrary
+  kc_theta: 450.0          # arbitrary: between 2 and 3 active claws (2*200 vs 3*200 Hz)
+  kc_gain: 0.1            # arbitrary: ~10 Hz for a 3-claw KC, like the spiking model
+  g_apl: 20.0              # arbitrary
+  mbon_gain: 20.0          # arbitrary
+
+spiking:                   # Brian2 LIF (ADR 0003); time constants unverified
+  dt_ms: 0.1
+  codegen_target: cython
+  v_rest_mv: -70.0
+  v_reset_mv: -70.0
+  v_thresh_mv: -50.0
+  refractory_ms: 2.0
+  noise_sigma_mv: 2.0      # arbitrary background membrane noise
+  tau_kc_ms: 10.0
+  tau_mbon_ms: 20.0
+  tau_apl_ms: 20.0
+  w_pn_kc_mv: 2.0
+  g_apl_mv: 0.03
+  w_kc_mbon_mv: 1.0
+
+protocol:
+  duration_ms: 500.0       # arbitrary presentation window (one loop step)
+  n_test: 20               # test presentations per transition (no plasticity)
+  n_train: 20              # training epochs over the 4 transitions (as validated in ADR 0005)
+
+loop:
+  length: 50
+  n_seq: 5                 # fewer than rate (10) to bound spiking run time
+
+controls:
+  pn_active_hz: 20.0       # arbitrary: PN counted active in the PN-direct control (spont 2, on 200)
+
+gate:
+  step_acc_target: 0.99    # Phase 2 per-seed criterion

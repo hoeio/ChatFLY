@@ -17,6 +17,7 @@ archs:
   - {arch: ensemble, k: 3}    # 3 flies, group rates summed
   - {arch: routed}            # one fly per input (3 inputs -> 3 flies), input selects the fly
   - {arch: routed_pn}         # control: routed, no KC layer (rule on PNs)
+  - {arch: routed_shared}     # control: routed, ONE fly with a KC->MBON weight set per input
 
 mb:
   n_pn: 150                # ~150 uniglomerular PNs (Choi 2022); FAFB counts more incl. multiglomerular

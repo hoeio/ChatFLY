@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# external connectome data: never commit (see data/README.md)
+data/*
+!data/README.md
+
+# experiment outputs: keep only the index file
+results/*
+!results/README.md

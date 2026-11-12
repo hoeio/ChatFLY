@@ -1,0 +1,56 @@
+# 02. Roadmap and Gates
+
+Each phase must pass its acceptance criteria before the next one begins. If it does not pass, summarize the results and report to the user.
+
+## Phase 0 — Foundations
+
+- Project skeleton, config system, seeding / logging, abstract `Simulator` interface
+- Compare and choose a simulator candidate (Brian2, NEST) → ADR
+- Start surveying the needed literature and parameters (`04-research-notes.md`)
+- **Acceptance criteria:** An empty model runs a simulation, and results are saved to `results/<run_id>/` together with config, seed, and commit. A run-time estimate by scale is documented.
+
+## Phase 1 — Associative learning in a single mushroom body (synthetic connectivity)
+
+- Implement synthetic PN→KC connectivity, APL, KC→MBON, DAN, and the plasticity rule
+- Classical conditioning: after learning A+ / B−, read approach / avoid from the MBONs
+- Explore the plasticity rule and parameter ranges with the rate model, then port to the spiking model
+- **Acceptance criteria (Gate A):**
+  - KC sparseness is within the target range.
+  - MBON readout changes statistically significantly between before and after learning (multiple seeds).
+  - Basic properties such as extinction and reversal are reproduced.
+  - Rate and spiking results agree qualitatively.
+
+## Phase 2 — Order discrimination and feedback-loop parity ★ branch point
+
+- 2a. AB vs BA order discrimination (feedforward). Check whether a single fly represents order information
+- 2b. Transition-table learning: present (state, input) conjunctions simultaneously and learn the four XOR transitions
+- 2c. Close the loop: extend parity to length 10 → 50 → 100 and measure the error-accumulation curve
+- 2d. Improve reliability through denoising (re-encoding), population readout, step spacing, etc.
+- **Acceptance criteria (Gate B):**
+  - After learning the four transitions, per-step accuracy ≥ 99% (a target value; if unreachable, report the achievable level and the cause)
+  - The sequence-accuracy-vs-length curve is reported and robustness to noise levels is measured.
+  - Compared against at least two controls (connectivity shuffle, same-size random network).
+- **On failure:** Do not proceed to Phase 3 or later. Analyze the cause (KC sparseness, insufficient conjunction separation, noise accumulation, plasticity rule, etc.) and present redefinition options (change the rule, change the readout, simplify the problem) to the user.
+
+## Phase 3 — Swap in the FlyWire connectome
+
+- Extract KC→MBON, MBON→DAN, MBON–MBON, and APL connectivity, neurotransmitter predictions, etc. from FlyWire (the data may need to be provided by the user)
+- Compare performance with the synthetic model on the same tasks
+- Ablations: KC–KC connections, MBON→DAN feedback, removal of specific compartments
+- **Acceptance criteria (Gate C):** Phase 2 tasks are reproduced with real connectivity, and the contribution of each structural component is quantified. If there is no contribution, report that fact.
+
+## Phase 4 — Vocabulary and grammar expansion, multiple flies
+
+- Tokens 4 → 6, additional rules (mod-3 counter, "no consecutive A", etc.)
+- Two-fly loops, series, and parallel + arbiter comparisons
+- **Acceptance criteria (Gate D):** A clear answer (yes or no) to whether any task a single fly cannot do becomes possible with multiple flies
+
+## Phase 5 — Chatbot
+
+- Natural-language ↔ token translation layer (LLM) and confidence-based responses
+- Evaluate conversational scenarios: measure translation accuracy and fly response accuracy separately
+- **Acceptance criteria (Gate E):** Question answering within the learned language works, and uncertain / out-of-scope input is handled honestly.
+
+## Note on estimated cost
+
+The mushroom body is a circuit designed to learn through a small number of trials, so transition-table learning itself (four transitions) is expected to be cheap. The time-consuming parts will be **hyperparameter tuning, achieving reliability, and long-sequence evaluation**. Always estimate simulation time before running.

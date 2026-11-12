@@ -19,6 +19,7 @@ import numpy as np
 import yaml
 
 from chatfly.conditioning import exp_conditioning, token_patterns
+from chatfly.fsm import exp_fsm_sweep, exp_multi_fly
 from chatfly.parity import exp_parity, exp_parity_table
 from chatfly.sim import SIMULATORS
 
@@ -93,7 +94,8 @@ def exp_bench(cfg: dict, seed: int) -> dict:
 
 
 EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning, "parity": exp_parity,
-               "parity_table": exp_parity_table}
+               "parity_table": exp_parity_table, "fsm_sweep": exp_fsm_sweep,
+               "multi_fly": exp_multi_fly}
 
 
 def main(argv=None) -> Path:

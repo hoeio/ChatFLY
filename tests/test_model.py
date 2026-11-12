@@ -98,3 +98,19 @@ def test_flywire_wiring_and_controls():
         assert (np.bincount(real[a]) == np.bincount(sh[b], minlength=len(np.bincount(real[a])))).all()
     assert len(set(zip(sh["kc_edge"], sh["pn_edge"]))) == len(sh["kc_edge"])  # no duplicates
     assert (real["pn_edge"] != sh["pn_edge"]).mean() > 0.5
+
+
+def test_fsm_tasks_and_routed_flies():
+    from chatfly.fsm import _multi_job, make_task, transitions
+
+    rng = np.random.default_rng(0)
+    assert make_task({"kind": "mod", "n": 3}, rng)["delta"]["s2"] == {"A": "s0", "B": "s2"}
+    assert make_task({"kind": "no_aa"}, rng)["delta"]["lastA"]["A"] == "dead"
+    t = make_task({"kind": "random", "n_states": 4, "n_inputs": 3}, rng)
+    assert len(transitions(t)) == 12 and all(v in t["states"] for v in
+                                            (s for row in t["delta"].values() for s in row.values()))
+    cfg = yaml.safe_load((CFG.parent / "phase4_multi_rate.yaml").read_text())
+    cfg["protocol"].update(n_train=5, n_test=2)
+    cfg["loop"].update(n_seq=1, length=5)
+    r = _multi_job(("rate", cfg, {"kind": "mod", "n": 3}, "routed", 1, 0))
+    assert r["task"] == "mod3" and 0.0 <= r["step_acc"] <= 1.0

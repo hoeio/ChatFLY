@@ -34,3 +34,18 @@ Run `results/20261112-160624_bench_mb_s0`: one 500 ms presentation of the full M
 | 8000 | 2e-4 s | 0.64 s | 1.29 |
 
 The full Gate A spiking run (10 seeds × ~80 presentations) took 176 s.
+
+## Rerun with graded eligibility (ADR 0005): PASS
+
+Run: `results/20261112-174122_phase1_conditioning_s0` (commit 3d9104b+, elig_ref_hz = 20, all else unchanged). All Wilcoxon tests have 10/10 non-zero differences.
+
+| Criterion | Rate | Spiking |
+|---|---|---|
+| Sparseness mean (min–max) | 0.106 (0.092–0.120) | 0.143 (0.121–0.165) |
+| Learning Δ, p | +1.46, 0.001 | +1.37, 0.001 |
+| Extinction drop, p | 0.58, 0.001 | 0.46, 0.001 |
+| Reversal diff, p | −1.32, 0.001 | −1.16, 0.001 |
+| Extinction with η_rec = 0 | p = 1.0 | p = 0.88 |
+| Reversal with η_rec = 0 | **p = 0.001 (survives)** | p = 0.5 |
+
+Effect sizes are smaller than with binary eligibility: weakly firing KCs now change less per trial. Extinction still depends entirely on the recovery term. Reversal no longer does in the rate model: synapses of weakly active KCs keep part of their weight, so they can be depressed again in the opposite compartment. It still does in the spiking model. So whether reversal depends on recovery is itself sensitive to the eligibility form.

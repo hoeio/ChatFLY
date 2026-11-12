@@ -28,6 +28,6 @@ A project to teach a very simple structured "language" to a **connectome-based s
 - Phase 0 (foundations): done. `docs/notes/phase0-runtime.md`
 - Phase 1 (conditioning, synthetic MB): Gate A pass. `docs/notes/phase1-gate-a.md`
 - Phase 2 (parity loop): Gate B failed with the first rule, then passed after a user-approved rule change (graded eligibility, ADR 0005). `docs/notes/phase2-gate-b.md`
-- Phase 3 (FlyWire connectome): waiting for data (see `data/README.md`).
+- Phase 3 (FlyWire connectome): Gate C failed as defined; the cause is the KC->MBON readout mapping (ADR 0006), and an all-to-all readout restores parity. Waiting for a user decision. `docs/notes/phase3-gate-c.md`
 
 Run an experiment: `python -m chatfly.run configs/<name>.yaml` (results in `results/<run_id>/`).

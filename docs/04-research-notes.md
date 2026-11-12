@@ -57,3 +57,22 @@ Source: Zenodo 10676866 (`proofread_connections_783.feather`) plus flywire_annot
 - KC↔APL: every olfactory KC connects to APL in both directions (21.7 and 17.6 synapses per KC on average).
 - KC→KC: 153,139 synapses, but only 648 pairs have ≥ 5 synapses (weak and diffuse).
 - License note: the Zenodo record is CC BY 4.0; FlyWire states CC BY-NC 4.0 for its data in general. The annotations repo has no license file but asks for citations.
+
+### 2026-11-12 (Phase 3): MBON compartments and DAN clusters (ADR 0007)
+
+The eLife pages were bot-blocked, so these were read on PMC: Li et al. 2020 (https://pmc.ncbi.nlm.nih.gov/articles/PMC7909955/), Aso et al. 2014a (https://pmc.ncbi.nlm.nih.gov/articles/PMC4273437/), Aso et al. 2014b (https://pmc.ncbi.nlm.nih.gov/articles/PMC4273436/).
+
+- **PPL1 vs PAM (verified, Li 2020, Fig 6 legend):** "the PPL1 neurons innervate the α' lobe, α lobe compartments 2 and 3, and γ lobe compartments 1 and 2"; "All other compartments are innervated by PAM DANs".
+- **MBON01–22 names (verified, Aso 2014b Table 1):** 01 γ5β'2a, 02 β2β'2a, 03 β'2mp, 04 β'2mp_bilateral, 05 γ4>γ1γ2, 06 β1>α, 07 α1, 08 γ3, 09 γ3β'1, 10 β'1, 11 γ1pedc>α/β, 12 γ2α'1, 13 α'2, 14 α3, 15 α'1, 16 α'3ap, 17 α'3m, 18 α2sc, 19 α2p3p, 20 γ1γ2, 21 γ4γ5, 22 calyx.
+  - Li 2020 says hemibrain numbers are synonyms ("MBON14 for MBON-α3").
+  - **Unverified:** whether hemibrain MBON10 (GABAergic, 3 cells, atypical) is Aso's MBON-10 (β'1, 8 cells).
+  - MBON08 was "not found in the hemibrain volume".
+- **MBON24–32 (verified, Li 2020, Fig 8 supplements):** 24 β2γ5, 25 γ1γ2, 26 β'2d, 27 γ5d, 28 α'3, 29 γ4γ5, 30 γ1γ2γ3, 31 α'1, 32 γ2.
+  - **Unverified** (page summary only): 33 γ2γ3, 34 γ2, 35 γ2.
+  - MBON23: compartment not found.
+- **Atypical MBONs (verified, Li 2020):** "14 cell types, that have part of their dendritic arbors outside the MB lobes".
+- **Valence logic (verified, Aso 2014b):**
+  - "PPL1- γ1pedc DANs play a major role to mediate punishment signals"; "reward signals are mediated by a distributed set of PAM cluster DANs".
+  - "all MBONs eliciting aversion were glutamatergic and all the MBONs eliciting attraction were either GABAergic or cholinergic".
+  - Dopamine pairing gives "depression of the synapses from the active KCs onto MBONs innervating that compartment" (Li 2020 intro).
+- **Measured (FlyWire v783):** MBON `side` is the soma side. For MBON01, 04, 05 and 06 the right-soma cell receives its KC input from left KCs, and vice versa. Example: right-soma MBON05 gets 9,926 synapses from left KCs and 0 from right KCs.

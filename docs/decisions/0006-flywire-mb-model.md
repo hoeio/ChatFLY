@@ -1,6 +1,6 @@
 # 0006. How the FlyWire connectome enters the MB model
 
-- Status: Accepted
+- Status: Accepted; decisions 3 and 4 and the MBON selection superseded by ADR 0007
 - Date: 2026-11-12
 
 ## Context
@@ -11,7 +11,7 @@ Phase 3 swaps the synthetic wiring for FlyWire v783 (`data/README.md`). The mode
 
 1. **Hemisphere and cells.** Right hemisphere. PNs are uniglomerular ALPNs (139). Multiglomerular PNs are excluded, because they are mostly not cholinergic MB inputs (unverified) and the token code is defined over uPNs. KCs are all `Kenyon_Cell`s with at least one uPN claw (2329 kept, 268 dropped; mostly non-olfactory KCs).
 2. **Claws.** A uPN→KC pair with ≥ 5 synapses (summed over neuropils) is one claw with the same weight as a synthetic claw. This gives 4.23 ± 1.61 claws per KC. The threshold is arbitrary; EM papers report 5.2 ± 1.6 claws (Zheng 2022), so ≥ 5 synapses is slightly strict.
-3. **KC→MBON.** Pairs with ≥ 5 synapses. Their synapse counts are the weight factors, scaled so every MBON's factors sum to n_kc: an all-to-all synthetic MBON has the same total drive. Without this scaling MBONs fire at 0.4–2.3 Hz and the readout is starved. MBONs with no KC input are dropped (35 of 48 kept).
+3. **KC→MBON.** Pairs with ≥ 5 synapses. Their synapse counts are the weight factors, scaled so every MBON's factors sum to n_kc: an all-to-all synthetic MBON has the same total drive. Without this scaling MBONs fire at 0.4–2.3 Hz and the readout is starved. MBONs with no KC input are dropped (35 of 48 kept). *Correction (ADR 0007): MBONs were selected by soma side, which is wrong for types with contralateral somata (MBON01, 04–06); now selected by KC-input side.*
 4. **Output compartments.** Whole MBON *types* are shuffled with the seed and dealt alternately to the two outputs (even / odd). The fly's compartments are defined by DAN innervation, which this model does not have, so this grouping is arbitrary. It is a source of seed-to-seed variance, which is intended.
 5. **APL.** Per-KC KC→APL and APL→KC synapse counts, normalized to mean 1, scale the APL input and inhibition of each KC. With uniform vectors this is exactly the synthetic model.
 6. **Not modeled yet:** KC–KC synapses (153k, but only 648 pairs have ≥ 5 synapses), MBON→DAN feedback (there are no DAN neurons in the model), MBON–MBON connections. Their ablations listed in `03-validation.md` need modeling work first; this is reported, not faked.

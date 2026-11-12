@@ -1,5 +1,7 @@
 # Phase 3 / Gate C: parity on FlyWire v783 wiring
 
+> **v1, superseded.** This version used the arbitrary MBON grouping and a buggy MBON selection (soma side instead of KC-input side; ADR 0007). It is kept for the record; see "Gate C v2" below once added.
+
 **Result: FAIL as defined.** Phase 2 parity is not reproduced with the real connectivity as mapped in ADR 0006. The cause is localized to the readout mapping (KC→MBON mask combined with an arbitrary assignment of MBON types to the two outputs), not to the PN→KC connectome.
 
 Gate C (docs/02-roadmap.md): "Phase 2 tasks are reproduced with real connectivity, and the contribution of each structural component is quantified." Phase 2 target: transition-table step accuracy ≥ 0.99 on every seed.

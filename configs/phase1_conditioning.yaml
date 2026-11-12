@@ -4,6 +4,7 @@ experiment: conditioning
 seed: 0
 n_seeds: 10                # docs/03-validation.md: >= 10 seeds
 simulators: [rate, spiking]
+rng_streams: {tokens: 10000}  # token patterns use seed + offset
 
 mb:
   n_pn: 150                # ~150 uniglomerular PNs (Choi 2022); FAFB counts more incl. multiglomerular

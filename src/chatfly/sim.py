@@ -25,6 +25,20 @@ def dopamine_rule(w, act, dan, w0, eta_dep, eta_rec):
     w[:, act] = x - eta_dep * d * x + eta_rec * (1 - d) * (w0 - x)
 
 
+def shuffle_claws(claws: np.ndarray, rng) -> np.ndarray:
+    """Permute all claw->PN assignments across KCs (keeps KC in-degree and PN out-degree),
+    then swap away duplicate PNs within a KC so every KC keeps distinct claws."""
+    c = rng.permutation(claws.ravel()).reshape(claws.shape)
+    while True:
+        bad = [k for k in range(len(c)) if len(set(c[k])) < c.shape[1]]
+        if not bad:
+            return c
+        for k in bad:
+            j, o, m = rng.integers(c.shape[1]), rng.integers(len(c)), rng.integers(c.shape[1])
+            if c[o, m] not in c[k] and c[k, j] not in c[o]:
+                c[k, j], c[o, m] = c[o, m], c[k, j]
+
+
 class Simulator(ABC):
     """`present(pn_rates_hz, duration_ms, dan=None, reset=True)`
     -> {"pn": Hz (n_pn,), "kc": Hz (n_kc,), "mbon": Hz (n_mbon,)}.
@@ -36,8 +50,11 @@ class Simulator(ABC):
     from this presentation's KC activity afterwards; otherwise the weights are untouched.
     """
 
-    def __init__(self, cfg: dict, seed: int):
+    def __init__(self, cfg: dict, seed: int, noise_seed: int | None = None):
+        """seed fixes wiring; noise_seed (default: seed) seeds the spiking model's noise and
+        Poisson input, so controls can share wiring but draw independent noise."""
         self.cfg = cfg
+        self.noise_seed = seed if noise_seed is None else noise_seed
         mb = cfg["mb"]
         self.rng = np.random.default_rng(seed)
         self.seed = seed
@@ -45,7 +62,7 @@ class Simulator(ABC):
         self.n_comp, self.m = len(mb["compartments"]), mb["mbon_per_compartment"]
         self.claws = pn_kc_claws(self.n_pn, self.n_kc, mb["claws_per_kc"], self.rng)
         if mb.get("claws_override") == "shuffle":  # degree-preserving control (03-validation)
-            self.claws = self.rng.permutation(self.claws.ravel()).reshape(self.claws.shape)
+            self.claws = shuffle_claws(self.claws, self.rng)
         p = cfg["plasticity"]
         self.w0, self.eta_dep, self.eta_rec = p["w0"], p["eta_dep"], p["eta_rec"]
         self.kc_active_hz = cfg["readout"]["kc_active_hz"]
@@ -89,14 +106,14 @@ class SpikingSimulator(Simulator):
     integrator that inhibits all KCs. The network has its own clock; state is restored
     before every presentation."""
 
-    def __init__(self, cfg, seed):
-        super().__init__(cfg, seed)
+    def __init__(self, cfg, seed, noise_seed=None):
+        super().__init__(cfg, seed, noise_seed)
         import brian2 as b2
 
         self.b2 = b2
         s = cfg["spiking"]
         mV, ms = b2.mV, b2.ms
-        b2.seed(seed)
+        b2.seed(self.noise_seed)  # global Brian2 RNG: give each instance its own noise_seed
         clock = b2.Clock(s["dt_ms"] * ms)
         ns = {"v_rest": s["v_rest_mv"] * mV, "sigma": s["noise_sigma_mv"] * mV,
               "tau_kc": s["tau_kc_ms"] * ms, "tau_mbon": s["tau_mbon_ms"] * ms,

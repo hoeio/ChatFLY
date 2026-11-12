@@ -6,6 +6,8 @@ seed: 0
 n_seeds: 10                # docs/03-validation.md: >= 10 seeds
 simulators: [rate, spiking]
 workers: 10               # parallel seed processes for the spiking model
+warmup_ms: 10.0            # compile-only warm-up run before workers start
+rng_streams: {tokens: 10000, task: 20000, noise: 1000}  # stream offsets: tokens/task = seed + offset; noise = seed * noise + k
 
 mb:
   n_pn: 150                # ~150 uniglomerular PNs (Choi 2022); FAFB counts more incl. multiglomerular
@@ -57,13 +59,14 @@ protocol:
   n_train: 10              # training epochs over the 4 transitions
 
 order:                     # 2a: AB vs BA, readout integrates both segments
-  segment_ms: 250.0        # arbitrary
+  segment_ms: [10.0, 30.0, 250.0]  # swept: short segments let membrane/APL carry-over (tau 10-20 ms) matter
   n_train: 10
   n_test: 10
 
 loop:                      # 2c: closed loop, each step from rest
   lengths: [10, 50, 100]
   n_seq: 10                # sequences per length per seed
+  p_input_a: 0.5           # probability that a step's input is A (else B)
 
 robustness:                # 2d: spiking only
   length: 50

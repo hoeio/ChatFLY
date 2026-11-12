@@ -37,10 +37,11 @@ def decide(v: float, band: float) -> str:
 
 def run_seed(kind: str, cfg: dict, seed: int) -> dict:
     sim = SIMULATORS[kind](cfg, seed)
-    pats = token_patterns(cfg, np.random.default_rng(seed + 10_000))
+    pats = token_patterns(cfg, np.random.default_rng(seed + cfg["rng_streams"]["tokens"]))
     p = cfg["protocol"]
     dur = p["duration_ms"]
-    reward, punish, none = [0.0, 1.0], [1.0, 0.0], [0.0, 0.0]  # DAN per [approach, avoid]
+    # DAN per [approach, avoid]; 1 = teacher on, 0 = off (definitional, not a parameter)
+    reward, punish, none = [0.0, 1.0], [1.0, 0.0], [0.0, 0.0]
 
     def test(token):
         return float(np.mean([valence(sim, sim.present(pats[token], dur)["mbon"])
@@ -89,7 +90,7 @@ def gate(seeds: list[dict], cfg: dict) -> dict:
     def arr(ph, t):
         return np.array([s[ph][t] for s in seeds])
 
-    def p_greater(x):  # H1: x > 0
+    def p_greater(x):  # H1: x > 0. Zeros are dropped, so min p = 2**-n_nonzero (reported).
         return float(wilcoxon(x, alternative="greater").pvalue) if np.any(x != 0) else 1.0
 
     sp = np.array([v for s in seeds for v in s["sparseness"].values()])
@@ -109,6 +110,9 @@ def gate(seeds: list[dict], cfg: dict) -> dict:
         "extinction_p_norec": ext_p_norec,
         "reversal_diff_mean": float(diff["rev"].mean()), "reversal_p": rev_p,
         "reversal_p_norec": rev_p_norec,
+        "n_nonzero": {"learning": int(np.count_nonzero(diff["post"] - diff["pre"])),
+                      "extinction": int(np.count_nonzero(ext_drop)),
+                      "reversal": int(np.count_nonzero(diff["rev"]))},
     }
     res["pass"] = {
         "sparseness": bool(lo <= sp.mean() <= hi),

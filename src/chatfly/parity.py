@@ -33,28 +33,31 @@ def pair(pats, s, x):
 
 
 def dan_for(target: int, n_comp: int) -> np.ndarray:
+    """Teacher: DAN on (1) in every compartment except the target (0); levels definitional."""
     d = np.ones(n_comp)
     d[target] = 0.0
     return d
 
 
 def decode(sim, mbon) -> tuple[int | None, float]:
-    """argmax compartment-mean MBON rate; confidence = (top - second) / sum; None if silent."""
+    """argmax compartment-mean MBON rate; confidence = (top - second) / sum.
+    None ("uncertain", scored as wrong) if all groups are silent or the top two tie."""
     comp = np.array([mbon[sim.mbon_comp == c].mean() for c in range(sim.n_comp)])
-    if comp.sum() <= 0:
-        return None, 0.0
     o = np.sort(comp)[::-1]
+    if comp.sum() <= 0 or o[0] == o[1]:
+        return None, 0.0
     return int(np.argmax(comp)), float((o[0] - o[1]) / comp.sum())
 
 
-def make_sim(kind, cfg, seed, wiring="random", g_apl_zero=False):
+def make_sim(kind, cfg, seed, k=0, wiring="random", g_apl_zero=False):
+    """Simulator with the seed's wiring and its own noise stream k (independent noise)."""
     cfg = copy.deepcopy(cfg)
     if g_apl_zero:
         cfg["rate"]["g_apl"] = 0.0
         cfg["spiking"]["g_apl_mv"] = 0.0
     if wiring == "shuffled":  # degree-preserving PN->KC shuffle (see Simulator.__init__)
         cfg["mb"]["claws_override"] = "shuffle"
-    return SIMULATORS[kind](cfg, seed)
+    return SIMULATORS[kind](cfg, seed, noise_seed=seed * cfg["rng_streams"]["noise"] + k)
 
 
 def train_table(sim, pats, cfg, rng, random_teacher=False):
@@ -98,15 +101,17 @@ def linear_baseline(X, y, ridge, rng) -> float:
     return float(np.mean((Z[te] @ w > 0) == (t[te] > 0)))
 
 
-def order_task(sim, pats, cfg, rng):
+def order_task(sim, pats, cfg, rng, seg_ms):
     """2a: AB -> class 0, BA -> class 1. The readout integrates the whole 2-segment window,
-    so only order information that survives in the network can be used."""
+    so only order information carried over inside the network (membrane / APL state) can be
+    used. Segment length is swept: carry-over can only matter when segments are short
+    relative to the time constants. The rate model has no carry-over (exactly symmetric)."""
     p = cfg["order"]
 
     def show(a, b, dan=None):
-        o1 = sim.present(pats[a], p["segment_ms"], reset=True)
-        o2 = sim.present(pats[b], p["segment_ms"], reset=False)
-        kc, mbon = (o1["kc"] + o2["kc"]) / 2, (o1["mbon"] + o2["mbon"]) / 2
+        o1 = sim.present(pats[a], seg_ms, reset=True)
+        o2 = sim.present(pats[b], seg_ms, reset=False)
+        kc, mbon = (o1["kc"] + o2["kc"]) / 2, (o1["mbon"] + o2["mbon"]) / 2  # equal segments
         if dan is not None:
             sim.learn(kc, dan)
         return mbon
@@ -153,10 +158,11 @@ def run_loop(sim, pats, cfg, rng, length, gap_ms):
     true_s, fed = "even", "even"
     step_ok, track_ok = [], []
     for k in range(length):
-        x = "A" if rng.random() < 0.5 else "B"
+        x = "A" if rng.random() < cfg["loop"]["p_input_a"] else "B"
         if gap_ms and k > 0:
             sim.present(spont, gap_ms, reset=False)
-        out = sim.present(pair(pats, fed, x), dur, reset=gap_ms is None)
+        # first step of every sequence starts from rest, so sequences are independent
+        out = sim.present(pair(pats, fed, x), dur, reset=gap_ms is None or k == 0)
         d, _ = decode(sim, out["mbon"])
         new = STATES[d] if d is not None else None
         step_ok.append(new == delta(fed, x))
@@ -170,22 +176,25 @@ def run_loop(sim, pats, cfg, rng, length, gap_ms):
 def run_seed(args):
     kind, cfg, seed = args
     t0 = time.perf_counter()
-    rng = np.random.default_rng(seed + 20_000)
-    pats = token_patterns(cfg, np.random.default_rng(seed + 10_000))
+    st = cfg["rng_streams"]
+    rng = np.random.default_rng(seed + st["task"])
+    pats = token_patterns(cfg, np.random.default_rng(seed + st["tokens"]))
     ridge = cfg["controls"]["ridge"]
     out = {"seed": seed}
 
     sim = make_sim(kind, cfg, seed)
     active = sim.present(pair(pats, "even", "A"), cfg["protocol"]["duration_ms"])["kc"]
     out["pair_sparseness"] = float((active >= sim.kc_active_hz).mean())
-    out["order_acc"] = order_task(make_sim(kind, cfg, seed), pats, cfg, rng)
+    out["order"] = {str(ms_): order_task(make_sim(kind, cfg, seed, k=i + 1), pats, cfg, rng, ms_)
+                    for i, ms_ in enumerate(cfg["order"]["segment_ms"])}
 
     train_table(sim, pats, cfg, rng)
     tt = test_table(sim, pats, cfg)
     out["step_acc"] = tt["acc"]
     out["step_conf"] = float(np.mean(tt["conf"]))
-    out["baseline_pn_linear"] = linear_baseline(tt["X_pn"], tt["y"], ridge, rng)
-    out["baseline_kc_linear"] = linear_baseline(tt["X_kc"], tt["y"], ridge, rng)
+    if kind == "spiking":  # rate model: repeats are identical, so a split is not held-out
+        out["baseline_pn_linear"] = linear_baseline(tt["X_pn"], tt["y"], ridge, rng)
+        out["baseline_kc_linear"] = linear_baseline(tt["X_kc"], tt["y"], ridge, rng)
     out["pn_direct_rule"] = pn_direct(sim, pats, cfg, rng, noisy=kind == "spiking")
     w_trained = sim.w.copy()
 
@@ -204,17 +213,18 @@ def run_seed(args):
             res = [run_loop(sim, pats, cfg, rng, L, gap) for _ in range(cfg["robustness"]["n_seq"])]
             rob[f"gap_{gap}"] = {k: float(np.mean([r[k] for r in res]))
                                  for k in ["step_acc", "seq_ok"]}
-        for sigma in cfg["robustness"]["noise_sigma_mv"]:
+        for i, sigma in enumerate(cfg["robustness"]["noise_sigma_mv"]):
             c2 = copy.deepcopy(cfg)
             c2["spiking"]["noise_sigma_mv"] = sigma
-            s2 = make_sim(kind, c2, seed)
+            s2 = make_sim(kind, c2, seed, k=20 + i)
             train_table(s2, pats, c2, rng)
             rob[f"sigma_{sigma}"] = {"step_acc": test_table(s2, pats, c2)["acc"]}
         out["robustness"] = rob
 
     ctrl = {}
-    for name, kw in [("teacher_shuffle", {}), ("wiring_shuffle", {"wiring": "shuffled"}),
-                     ("apl_ablation", {"g_apl_zero": True})]:
+    for name, kw in [("teacher_shuffle", {"k": 30}),
+                     ("wiring_shuffle", {"k": 31, "wiring": "shuffled"}),
+                     ("apl_ablation", {"k": 32, "g_apl_zero": True})]:
         s2 = make_sim(kind, cfg, seed, **kw)
         train_table(s2, pats, cfg, rng, random_teacher=name == "teacher_shuffle")
         ctrl[name] = test_table(s2, pats, cfg)["acc"]
@@ -234,22 +244,25 @@ def summarize(seeds, cfg):
 
     out = {"step_acc": ms([s["step_acc"] for s in seeds]),
            "pair_sparseness": ms([s["pair_sparseness"] for s in seeds]),
-           "order_acc": ms([s["order_acc"]["acc"] for s in seeds]),
-           "order_uncertain": ms([s["order_acc"]["uncertain"] for s in seeds]),
+           "order": {seg: {k: ms([s["order"][seg][k] for s in seeds]) for k in ("acc", "uncertain")}
+                     for seg in seeds[0]["order"]},
            "pn_direct_rule": ms([s["pn_direct_rule"] for s in seeds]),
-           "baseline_pn_linear": ms([s["baseline_pn_linear"] for s in seeds]),
-           "baseline_kc_linear": ms([s["baseline_kc_linear"] for s in seeds]),
            "controls": {k: ms([s["controls"][k] for s in seeds]) for k in seeds[0]["controls"]},
            "loop": {L: {k: ms([s["loop"][L][k] for s in seeds]) for k in seeds[0]["loop"][L]}
                     for L in seeds[0]["loop"]}}
-    p = out["step_acc"]["mean"]
-    out["loop_pn_prediction"] = {L: p ** int(L) for L in seeds[0]["loop"]}
+    if "baseline_pn_linear" in seeds[0]:
+        for k in ("baseline_pn_linear", "baseline_kc_linear"):
+            out[k] = ms([s[k] for s in seeds])
+    p = np.array([s["step_acc"] for s in seeds])
+    # p^n per seed, then averaged (averaging p first is biased low by Jensen's inequality)
+    out["loop_pn_prediction"] = {L: float(np.mean(p ** int(L))) for L in seeds[0]["loop"]}
     if "robustness" in seeds[0]:
         out["robustness"] = {k: {m: ms([s["robustness"][k][m] for s in seeds])
                                  for m in seeds[0]["robustness"][k]}
                              for k in seeds[0]["robustness"]}
-    out["gate_b"] = {"step_acc_target": cfg["gate"]["step_acc_target"],
-                     "step_acc_pass": p >= cfg["gate"]["step_acc_target"]}
+    tgt = cfg["gate"]["step_acc_target"]
+    out["gate_b"] = {"step_acc_target": tgt, "frac_seeds_at_target": float(np.mean(p >= tgt)),
+                     "step_acc_pass": bool(np.all(p >= tgt))}  # every seed, not just the mean
     return out
 
 
@@ -265,7 +278,7 @@ def exp_parity(cfg: dict, seed: int) -> dict:
                 c2["spiking"]["noise_sigma_mv"] = sigma
                 for apl0 in (False, True):
                     make_sim(kind, c2, seed, g_apl_zero=apl0).present(
-                        np.zeros(cfg["mb"]["n_pn"]), 10.0)
+                        np.zeros(cfg["mb"]["n_pn"]), cfg["warmup_ms"])
             with ProcessPoolExecutor(cfg["workers"]) as ex:
                 seeds = list(ex.map(run_seed, jobs))
         else:

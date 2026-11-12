@@ -14,7 +14,8 @@ In Gate C v1 (`docs/notes/phase3-gate-c.md`), each seed dealt MBON types at rand
 
 1. **MBON selection:** all MBONs whose KC input comes mostly from this hemisphere's KCs (`connectome.py`, cache v2). This gives 48 MBONs, 39 of them with ≥ 1 KC edge of ≥ 5 synapses.
 2. **Output groups (`mb.mbon_groups`, lists in the configs under `mbon_clusters`).** The rule, from Li et al. 2020 (verbatim): "the PPL1 neurons innervate the α' lobe, α lobe compartments 2 and 3, and γ lobe compartments 1 and 2"; "All other compartments are innervated by PAM DANs". MBON compartments come from Aso et al. 2014b Table 1 (MBON01–22) and Li et al. 2020 figure legends (MBON24–32). MBON33–35 come from page summaries only and are unverified. Sources and details are in `docs/04-research-notes.md`.
-   - Output 0 (even) = PPL1 group (17 types). Output 1 (odd) = PAM group (13 types).
+   - Output 0 (even) = PPL1 group (17 types listed). Output 1 (odd) = PAM group (13 types listed).
+   - Types with no KC edge of ≥ 5 synapses drop out: MBON15, MBON19 and "MBON25,MBON34" (PPL1), and MBON29 (PAM). The model therefore uses 14 PPL1 types (17 cells) and 12 PAM types (14 cells).
    - Excluded: MBON10 (hemibrain and Aso 2014 numbering may differ), 22 (calyx), 23 (compartment not found), and 30 / 33 (γ1γ2γ3 / γ2γ3, which span both clusters).
    - For "β1>α" and "γ4>γ1γ2", the compartment before ">" is taken as the dendritic one. This reading of the naming convention is inferred, not quoted.
    - KC coverage: 1,717 of 2,329 KCs reach both groups, 106 only PPL1, 468 only PAM, 38 neither.

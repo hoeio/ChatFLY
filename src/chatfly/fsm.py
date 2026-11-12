@@ -308,3 +308,31 @@ def exp_multi_fly(cfg: dict, seed: int) -> dict:
                          kind, res["task"], a["arch"], a.get("k", 1), res["mean"], res["min"],
                          res["frac_at_target"], res["loop_seq_ok"])
     return {"runs": out}
+
+
+def margin_table(metrics: dict) -> dict:
+    """Step-1 analysis: per-transition accuracy vs. margin = (row/column mates whose target is
+    the strongest competing state) - (mates whose target is the correct state). Random tables
+    only. Run: python -m chatfly.fsm results/<run_id>/metrics.json"""
+    by = {}
+    for run in metrics["runs"]:
+        if run["spec"]["kind"] != "random":
+            continue
+        for sd in run["seeds"]:
+            d = sd["delta"]
+            st, xs = list(d), list(d[next(iter(d))])
+            for i, (s, x) in enumerate((s, x) for s in st for x in xs):
+                t = d[s][x]
+                mates = [d[s][x2] for x2 in xs if x2 != x] + [d[s2][x] for s2 in st if s2 != s]
+                m = max(mates.count(g) for g in st if g != t) - mates.count(t)
+                by.setdefault(max(m, 0), []).append(sd["per_transition"][i] >= 0.5)
+    return {k: {"n": len(v), "acc": float(np.mean(v))} for k, v in sorted(by.items())}
+
+
+if __name__ == "__main__":
+    import json
+    import sys
+    from pathlib import Path
+
+    for k, v in margin_table(json.loads(Path(sys.argv[1]).read_text())).items():
+        print(f"margin {'<=0' if k == 0 else k}: n {v['n']}, acc {v['acc']:.3f}")

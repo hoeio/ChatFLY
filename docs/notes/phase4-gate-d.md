@@ -22,21 +22,20 @@ Gate D (`docs/02-roadmap.md`): a clear yes/no on whether any task a single fly c
 
 Chance is 1/n_states. The structured tasks, including the 3- and 4-state counters and no-AA, are learned perfectly. Random tables degrade with size.
 
-**Failure mechanism (from the per-transition results; 960 transitions over all random tables).** In the rate model, failures are all-or-nothing per transition. They are predicted by how the other entries in the same row and column vote. Let *margin* be the number of row/column mates whose target is the strongest competing state, minus the number whose target is the correct state.
+**Failure mechanism.** Recomputed from the per-transition results with `python -m chatfly.fsm <metrics.json>` (`fsm.margin_table`), random tables only: 720 transitions in rate and 390 in spiking. In the rate model, failures are all-or-nothing per transition. They are predicted by how the other entries in the same row and column vote. Let *margin* be the number of row/column mates whose target is the strongest competing state, minus the number whose target is the correct state.
 
 | margin | ≤ 0 | 1 | 2 | 3 | 4 | 5 |
 |---|---|---|---|---|---|---|
-| transitions | 271 | 218 | 362 | 91 | 17 | 1 |
-| accuracy | 1.000 | 0.995 | 0.953 | 0.692 | 0.294 | 0.000 |
+| rate: transitions | 241 | 198 | 172 | 91 | 17 | 1 |
+| rate: accuracy | 1.000 | 0.995 | 0.901 | 0.692 | 0.294 | 0.000 |
+| spiking: transitions | 115 | 112 | 91 | 58 | 13 | 1 |
+| spiking: accuracy | 1.000 | 0.955 | 0.769 | 0.638 | 0.231 | 0.000 |
 
-Interpretation:
+Interpretation (a mechanism consistent with the data, not proven):
 - A KC driven by only one of the two tokens is active in every pair of that row or column. Its weights therefore settle toward the row/column majority target.
-- Only the conjunctive KCs (driven by both tokens) carry the entry itself.
-- When the majority disagrees with the entry by ≥ 3, the conjunctive KCs are outvoted.
-- This depends on the *fraction* of conjunctive KCs, a statistic of the code. Neither more KCs nor different wiring changes it, as the controls below show.
-- Counters and no-AA never create such majorities.
-
-PN-pattern similarity does not explain the failures. The maximum Jaccard index to a conflicting pair is 0.481 for failed transitions and 0.456 for correct ones.
+- Only the conjunctive KCs (driven by both tokens) carry the entry itself, and they get outvoted as the margin grows.
+- The counters have margin 2 on every A transition and still score 1.0 in rate. Margin alone is therefore not the whole story: in a counter the competing majority is split across transitions in a structured way. What the table shows is that random tables produce margins ≥ 3, which counters never do.
+- An earlier, unscripted check found that PN-pattern similarity does not separate failed from correct transitions. It is not in the repository and is dropped here.
 
 ### Step 2: several flies (`results/20261112-220527_phase4_multi_rate_s0`)
 
@@ -67,7 +66,7 @@ Loop sequences fully correct (50 steps):
 - 6×3: single 0.04, big 0.48, ensemble 0.04, routed 0.98, no-KC 0.12.
 
 Differences from the rate model:
-- **Size matters more in spiking.** A single fly is worse here than in the rate model (6×3: 0.740 vs 0.867), and the 3× bigger fly recovers much of the gap (0.960). Part of the spiking failure is therefore noise, which more KCs average out. Even so, the bigger fly reaches the criterion on only 3–6 of 10 seeds.
+- **The `big` result in this table is confounded (independent review).** Spiking APL input and KC→MBON drive are per-spike sums, so 3× KCs also gave sparser KCs (0.127 vs 0.161 active) and about 2× the MBON rate. The control is re-run with both drives scaled by 1/k (see "Review fixes" below). The rate model normalizes by n_kc, so its `big` is unaffected.
 - **Routed specialists replicate:** 10/10 on 4×3, and 9/10 on 6×3, where one seed scores 0.964.
 - **The no-KC routed control fails in spiking too:** 4/10 and 1/10 seeds.
 

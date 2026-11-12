@@ -1,6 +1,6 @@
 # Phase 3 / Gate C: parity on FlyWire v783 wiring
 
-> **v1, superseded.** This version used the arbitrary MBON grouping and a buggy MBON selection (soma side instead of KC-input side; ADR 0007). It is kept for the record; see "Gate C v2" below once added.
+> **v1, superseded.** This version used the arbitrary MBON grouping and a buggy MBON selection (soma side instead of KC-input side; ADR 0007). It is kept for the record; see "Gate C v2" below.
 
 **Result: FAIL as defined.** Phase 2 parity is not reproduced with the real connectivity as mapped in ADR 0006. The cause is localized to the readout mapping (KC→MBON mask combined with an arbitrary assignment of MBON types to the two outputs), not to the PN→KC connectome.
 
@@ -65,7 +65,7 @@ For comparison, synthetic wiring in Phase 2 gave 10/10 at σ 2, was robust to σ
 
 **Result: near-pass, FAIL on the strict criterion.** On real FlyWire wiring the spiking model reproduces parity almost to the Phase 2 level. However, 1 of 10 seeds falls just short of 0.99 in the full run, and 4 of 10 fall short in the controls run on the same seeds. The difference between the two runs is only the noise and task random draws, so this result sits on the gate boundary. The rate model passes everything.
 
-Runs (all on commit 2394e2f or code-identical predecessors):
+Runs (the commit is in each run's meta.json; the held-out run is on `8deb438-dirty`, with its `patch.diff` saved alongside):
 - `results/20261112-203652_phase3_parity_flywire_s0`: full Phase 2 protocol on real wiring.
 - `results/20261112-193520_phase3_controls_s0`: spiking controls × noise.
 - `results/20261112-193424_phase3_heldout_rate_s0`: rate held-out check, seeds 20–29.
@@ -131,4 +131,4 @@ The task is still solved by the KC expansion plus the dopamine rule. The PN-dire
 
 ## Decision (user, 2026-11-12)
 
-Accepted as a near-pass. The strict criterion (all seeds ≥ 0.99) is not met: 9/10 in the full run. The "no measurable contribution of the real PN→KC / APL structure" finding stands. Phase 4 proceeds on real wiring with the ADR 0007 readout.
+Accepted as a near-pass. The strict criterion (all seeds ≥ 0.99) is not met: 9/10 in the full run. The "no measurable contribution of the real PN→KC / APL structure" finding stands. Phase 4 then proceeds. The user later chose the capacity-sweep definition of Gate D, which runs on synthetic wiring because real wiring grounds only 2 output groups (ADR 0008).

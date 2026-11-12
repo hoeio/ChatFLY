@@ -17,12 +17,12 @@ def pn_kc_claws(n_pn: int, n_kc: int, claws: int, rng) -> np.ndarray:
     return np.array([rng.choice(n_pn, claws, replace=False) for _ in range(n_kc)])
 
 
-def dopamine_rule(w, act, dan, w0, eta_dep, eta_rec):
-    """ADR 0004. In place on w[:, act]: depress on input x DAN coincidence, recover toward w0
-    when the input is active and the compartment's DAN is silent."""
+def dopamine_rule(w, elig, dan, w0, eta_dep, eta_rec):
+    """ADR 0004. In place: depress on input x DAN coincidence, recover toward w0 when the input
+    is active and the compartment's DAN is silent. elig: per input, bool or in [0, 1]."""
+    e = np.asarray(elig, float)[None, :]
     d = dan[:, None]
-    x = w[:, act]
-    w[:, act] = x - eta_dep * d * x + eta_rec * (1 - d) * (w0 - x)
+    w += e * (-eta_dep * d * w + eta_rec * (1 - d) * (w0 - w))
 
 
 def shuffle_claws(claws: np.ndarray, rng) -> np.ndarray:
@@ -66,6 +66,7 @@ class Simulator(ABC):
         p = cfg["plasticity"]
         self.w0, self.eta_dep, self.eta_rec = p["w0"], p["eta_dep"], p["eta_rec"]
         self.kc_active_hz = cfg["readout"]["kc_active_hz"]
+        self.elig_ref_hz = p.get("elig_ref_hz")  # None: binary eligibility (ADR 0004)
         self.w = np.full((self.n_comp, self.n_kc), self.w0)
         self.mbon_comp = np.repeat(np.arange(self.n_comp), self.m)  # compartment of each MBON
 
@@ -76,8 +77,11 @@ class Simulator(ABC):
         return out
 
     def learn(self, kc_rates, dan):
-        dopamine_rule(self.w, kc_rates >= self.kc_active_hz, dan, self.w0, self.eta_dep,
-                      self.eta_rec)
+        if self.elig_ref_hz is None:
+            elig = kc_rates >= self.kc_active_hz
+        else:  # graded: proportional to the KC rate, saturating at elig_ref_hz (ADR 0005)
+            elig = np.clip(kc_rates / self.elig_ref_hz, 0.0, 1.0) * (kc_rates >= self.kc_active_hz)
+        dopamine_rule(self.w, elig, dan, self.w0, self.eta_dep, self.eta_rec)
 
     @abstractmethod
     def _run(self, pn_rates_hz, duration_ms, reset) -> dict[str, np.ndarray]: ...

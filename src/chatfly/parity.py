@@ -248,14 +248,28 @@ def run_seed(args):
 
 
 def exp_parity_table(cfg: dict, seed: int) -> dict:
-    """Diagnostic: train + test the transition table only, for cfg["seeds"], in parallel."""
-    out = {}
+    """Train + test the transition table only, for cfg["seeds"], in parallel. Optional
+    cfg["grid"] = {"section.key": [values, ...]} runs every combination (a sweep)."""
+    import itertools
+
+    grid = cfg.get("grid", {})
+    combos = [dict(zip(grid, v, strict=True)) for v in itertools.product(*grid.values())] or [{}]
+    out = []
     for kind in cfg["simulators"]:
-        with ProcessPoolExecutor(cfg["workers"]) as ex:
-            rows = list(ex.map(_table_job, [(kind, cfg, s) for s in cfg["seeds"]]))
-        out[kind] = rows
-        log.info("%s: %s", kind, [(r["seed"], round(r["step_acc"], 3)) for r in rows])
-    return out
+        for combo in combos:
+            c2 = copy.deepcopy(cfg)
+            for path, v in combo.items():
+                sec, key = path.split(".")
+                c2[sec][key] = v
+            with ProcessPoolExecutor(cfg["workers"]) as ex:
+                rows = list(ex.map(_table_job, [(kind, c2, s) for s in cfg["seeds"]]))
+            acc = np.array([r["step_acc"] for r in rows])
+            out.append({"simulator": kind, "params": combo, "mean": float(acc.mean()),
+                        "min": float(acc.min()), "frac_at_target":
+                        float(np.mean(acc >= cfg["gate"]["step_acc_target"])), "seeds": rows})
+            log.info("%s %s: mean %.3f min %.3f at-target %.1f", kind, combo, acc.mean(),
+                     acc.min(), out[-1]["frac_at_target"])
+    return {"runs": out}
 
 
 def _table_job(args):

@@ -85,7 +85,33 @@ Differences from the rate model:
 - No-AA is largely solvable without KCs (PN-direct 0.826). Its entries rarely need a conjunction.
 - The killed first run reproduced exactly on mod3 and mod4 (same seeds, same numbers).
 
-## Gate D verdict: **YES**
+## Review fixes (independent agent review, 2026-11-13)
+
+Rate: `results/20261113-010918_phase4_multi_rate_s0` (full re-run including the new control). Spiking: `results/20261113-011019_phase4_multi_spiking_fix_s0`.
+
+| | big (3× KCs) | routed (separate flies) | **routed_shared** (one fly, one KC layer, KC→MBON weights per input) | routed, no KC |
+|---|---|---|---|---|
+| rate 3×3 | 0.956 (6) | 1.000 (10) | **1.000 (10)** | 0.989 (9) |
+| rate 4×3 | 0.933 (4) | 1.000 (10) | **1.000 (10)** | 0.950 (5) |
+| rate 6×3 | 0.867 (0) | 1.000 (10) | **0.994 (9)**, min 0.944 | 0.911 (2) |
+| spiking 4×3 | 0.901 (0), drives scaled 1/k | 1.000 (10) | **0.996 (9)**, min 0.958 | 0.944 (4) |
+| spiking 6×3 | 0.705 (0), drives scaled 1/k | 0.996 (9) | **0.994 (9)**, min 0.947 | 0.904 (1) |
+
+Values are mean step accuracy, with seeds ≥ 0.99 in brackets. The spiking `routed` values are from the earlier run. The rate model's `routed_pn` now uses independent noise per specialist; rate is deterministic, so its numbers are unchanged.
+
+- **A size-matched bigger fly does not help in spiking either**, once its APL and KC→MBON drives are scaled by 1/k. The earlier gain (0.960) came from the changed operating regime.
+- **One fly with the same router does almost exactly as well as separate flies.** The router selects a separate KC→MBON weight set per input token. With a single shared KC layer that is enough: it reaches 9–10/10 seeds wherever separate flies do, and the remaining difference is at most one seed.
+- **So the capability comes from input-indexed readout plasticity (selected by the fixed router) on top of a KC layer, not from having several mushroom bodies.** The no-KC control still fails, so a KC expansion is needed. One is enough.
+
+## Gate D verdict (revised; pending user decision)
+
+- **By ADR 0008 decision 5 as written: YES.** Routed flies meet the criterion where a single fly, the size-matched fly and the no-KC router do not.
+- **With the review's control: the "multiple flies" part is not what does the work.** A single fly given the same router glue matches separate flies. The tasks a plain single fly cannot learn (random tables with conflicting row/column majorities) become learnable through an input-gated readout, whether it is implemented as several flies or as per-input weights in one fly.
+- In this implementation the gating is designer-set glue. Whether a real MB could gate its plasticity by input (for example, via input-specific DAN activity) is untested and not claimed.
+
+## Superseded: first Gate D verdict
+
+Gate D verdict as first written: **YES**
 
 The criterion is ADR 0008 decision 5: a single fly misses the per-seed 0.99 criterion, a multi-fly architecture meets it, and both the size-matched and the no-KC controls miss it.
 

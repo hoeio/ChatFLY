@@ -71,6 +71,35 @@ Differences from the rate model:
 - **Routed specialists replicate:** 10/10 on 4×3, and 9/10 on 6×3, where one seed scores 0.964.
 - **The no-KC routed control fails in spiking too:** 4/10 and 1/10 seeds.
 
-### Step 1: single-fly capacity (spiking)
+### Step 1: single-fly capacity (`results/20261113-000839_phase4_sweep_spiking_s0`; loop with 5 sequences of 50 steps)
 
-Running: `configs/phase4_sweep_spiking.yaml`. Results will be added.
+| task | step acc mean (min) | seeds ≥ 0.99 | loop sequences correct | PN-direct | teacher shuffle |
+|---|---|---|---|---|---|
+| mod3 counter | 0.999 (0.992) | 10 | 1.00 | 0.417 | 0.321 |
+| mod4 counter | 0.996 (0.981) | 8 | 0.82 | 0.351 | 0.224 |
+| no consecutive A | 0.993 (0.933) | 9 | 0.92 | 0.826 | 0.290 |
+| random 3×3 | 0.938 (0.767) | 4 | 0.56 | 0.622 | 0.271 |
+| random 4×3 | 0.903 (0.808) | 1 | 0.06 | 0.558 | 0.214 |
+| random 6×3 | 0.740 (0.586) | 0 | 0.04 | 0.344 | 0.066 |
+
+- The structured tasks are learned at ≥ 0.99 mean in spiking too. The strict all-seeds criterion holds for mod3 only: mod4 reaches it on 8/10 seeds and no-AA on 9/10.
+- No-AA is largely solvable without KCs (PN-direct 0.826). Its entries rarely need a conjunction.
+- The killed first run reproduced exactly on mod3 and mod4 (same seeds, same numbers).
+
+## Gate D verdict: **YES**
+
+The criterion is ADR 0008 decision 5: a single fly misses the per-seed 0.99 criterion, a multi-fly architecture meets it, and both the size-matched and the no-KC controls miss it.
+
+| | single | big (3× KCs) | ensemble | routed | routed, no KC |
+|---|---|---|---|---|---|
+| rate 3×3 / 4×3 / 6×3 (seeds ≥ 0.99) | 6 / 3 / 0 | 6 / 4 / 0 | 7 / 3 / 1 | **10 / 10 / 10** | 9 / 5 / 2 |
+| spiking 4×3 / 6×3 | 1 / 0 | 6 / 3 | 3 / 0 | **10 / 9** | 4 / 1 |
+
+- **Yes, on random transition tables with conflicting row/column majorities.** Rate 3×3, 4×3, 6×3 and spiking 4×3 meet the full criterion. Spiking 6×3 is 9/10 for routed, with min 0.964, against ≤ 3/10 for every control.
+- **What makes it work:** splitting the table by input token, so that no fly has to resolve a conjunction its single-token KCs outvote. Each specialist still needs its own KC expansion.
+- **What does not:** more KCs in one fly, or more flies doing the same job with summed outputs.
+- **Caveats:**
+  1. The router (input → fly) is designer-set glue that does part of the conjunction (`01-architecture.md`, "parallel + arbiter").
+  2. The number of flies grows with the number of input tokens.
+  3. All on synthetic wiring. One output group per state is not biologically grounded beyond 2 groups (ADR 0007).
+  4. Loops and series of flies, and cheaper groupings of inputs per fly, were not explored.

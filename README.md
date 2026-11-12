@@ -29,5 +29,6 @@ A project to teach a very simple structured "language" to a **connectome-based s
 - Phase 1 (conditioning, synthetic MB): Gate A pass. `docs/notes/phase1-gate-a.md`
 - Phase 2 (parity loop): Gate B failed with the first rule, then passed after a user-approved rule change (graded eligibility, ADR 0005). `docs/notes/phase2-gate-b.md`
 - Phase 3 (FlyWire connectome): Gate C v2 near-pass (spiking 9/10 seeds ≥ 0.99, rate 10/10) after the MBON selection fix and the DAN-cluster readout (ADR 0007); strict criterion not met. No evidence that the real PN→KC or APL structure contributes. Accepted by the user as a near-pass. `docs/notes/phase3-gate-c.md`
+- Phase 4 (capacity, multiple flies): Gate D answered YES. One fly fails random transition tables with conflicting row/column majorities; input-routed specialist flies solve them, and size-matched and no-KC controls do not (glue caveat: fixed router). `docs/notes/phase4-gate-d.md`
 
 Run an experiment: `python -m chatfly.run configs/<name>.yaml` (results in `results/<run_id>/`).

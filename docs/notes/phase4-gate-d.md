@@ -55,4 +55,22 @@ Values are mean step accuracy, with seeds ≥ 0.99 in brackets. The 50-step loop
 
 ## Spiking model
 
-Running: `configs/phase4_sweep_spiking.yaml`, `configs/phase4_multi_spiking.yaml`. Results will be added.
+### Step 2: several flies (`results/20261112-220729_phase4_multi_spiking_s0`; loop with 5 sequences of 50 steps)
+
+| table | single | big (3× KCs) | ensemble (3 flies) | **routed** | routed, no KC layer |
+|---|---|---|---|---|---|
+| 4×3 | 0.903 (1) | 0.960 (6) | 0.918 (3) | **1.000 (10)** | 0.945 (4) |
+| 6×3 | 0.740 (0) | 0.960 (3) | 0.838 (0) | **0.996 (9)**, min 0.964 | 0.907 (1) |
+
+Loop sequences fully correct (50 steps):
+- 4×3: single 0.06, big 0.56, ensemble 0.22, routed 1.00, no-KC 0.56.
+- 6×3: single 0.04, big 0.48, ensemble 0.04, routed 0.98, no-KC 0.12.
+
+Differences from the rate model:
+- **Size matters more in spiking.** A single fly is worse here than in the rate model (6×3: 0.740 vs 0.867), and the 3× bigger fly recovers much of the gap (0.960). Part of the spiking failure is therefore noise, which more KCs average out. Even so, the bigger fly reaches the criterion on only 3–6 of 10 seeds.
+- **Routed specialists replicate:** 10/10 on 4×3, and 9/10 on 6×3, where one seed scores 0.964.
+- **The no-KC routed control fails in spiking too:** 4/10 and 1/10 seeds.
+
+### Step 1: single-fly capacity (spiking)
+
+Running: `configs/phase4_sweep_spiking.yaml`. Results will be added.

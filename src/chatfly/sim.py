@@ -72,13 +72,29 @@ def build_wiring(cfg: dict, rng) -> dict:
         pn, kc = c["pn_edge"].copy(), c["kc_edge"].copy()
         counts = np.where(c["kc_mbon"] >= cfg["connectome"]["min_synapses"], c["kc_mbon"], 0)
         fed = counts.sum(1) > 0  # drop MBONs with no KC input: they cannot carry an output
-        mask = counts[fed] * (n_kc / counts[fed].sum(1, keepdims=True))
         # Output groups: whole MBON types, shuffled, then dealt to compartments in turn
-        # (arbitrary grouping, varies with the seed; ADR 0006).
-        types = np.array(c["mbon_type"])[fed]
-        uniq = rng.permutation(np.unique(types))
-        comp_of_type = {t: i % n_comp for i, t in enumerate(uniq)}
-        mbon_comp = np.array([comp_of_type[t] for t in types])
+        # (arbitrary grouping, varies with the seed; ADR 0006), unless mb.mbon_groups maps each
+        # compartment to a list of types (ADR 0007); unlisted types are then dropped.
+        uniq = rng.permutation(np.unique(np.array(c["mbon_type"])[fed]))
+        groups = mb.get("mbon_groups")
+        if groups:
+            comp_of_type = {t: mb["compartments"].index(name)
+                            for name, ts in groups.items() for t in ts}
+            fed &= np.isin(c["mbon_type"], list(comp_of_type))
+        else:
+            comp_of_type = {t: i % n_comp for i, t in enumerate(uniq)}
+        # connectome.mbon_norm: "per_mbon" (ADR 0006: every MBON row sums to n_kc), "global"
+        # (one scale, mean row sum n_kc, relative MBON strengths stay real) or "group" (one
+        # scale per output group, mean row sum n_kc within each group; ADR 0007)
+        if cfg["connectome"].get("mbon_norm", "per_mbon") == "global":
+            mask = counts[fed] * (n_kc * fed.sum() / counts[fed].sum())
+        else:
+            mask = counts[fed] * (n_kc / counts[fed].sum(1, keepdims=True))
+        mbon_comp = np.array([comp_of_type[t] for t in np.array(c["mbon_type"])[fed]])
+        if cfg["connectome"].get("mbon_norm") == "group":  # one scale per output group
+            for g in range(n_comp):
+                r = mbon_comp == g
+                mask[r] = counts[fed][r] * (n_kc * r.sum() / counts[fed][r].sum())
         apl_in, apl_out = c["kc_to_apl"], c["apl_to_kc"]
     else:
         n_pn, n_kc = mb["n_pn"], mb["n_kc"]

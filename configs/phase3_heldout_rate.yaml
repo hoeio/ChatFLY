@@ -1,0 +1,113 @@
+# Phase 3 held-out check (seeds 20-29) of the ADR 0007 readout, rate model: same variants as phase3_controls.yaml (noise-free, so no
+# noise grid), plus random wiring with an all-to-all readout to separate PN->KC from KC->MBON.
+# Sources: docs/04-research-notes.md. "arbitrary" = arbitrary default, tuned for Gate A only.
+# MBON types by the DAN cluster of their dendritic compartments (ADR 0007; docs/04-research-notes.md).
+# PPL1 compartments: alpha', alpha2, alpha3, gamma1, gamma2; all others PAM (Li et al. 2020).
+# Excluded: MBON10 (numbering unverified), 22 (calyx), 23 (unknown), 30 / 33 (span both clusters).
+mbon_clusters:
+  ppl1: &ppl1 [MBON11, MBON12, MBON13, MBON14, MBON15, MBON15-like, MBON16, MBON17, MBON17-like,
+               MBON18, MBON19, MBON20, "MBON25,MBON34", MBON28, MBON31, MBON32, MBON35]
+  pam: &pam [MBON01, MBON02, MBON03, MBON04, MBON05, MBON06, MBON07, MBON09, MBON21, MBON24,
+             MBON26, MBON27, MBON29]
+experiment: parity_table
+seeds: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29]  # held-out check of mbon_norm: group
+variants:
+  - {name: real, set: {}}
+  - {name: swap, set: {mb.mbon_groups: {even: *pam, odd: *ppl1}}}  # labels swapped
+  - {name: arbitrary, set: {mb.mbon_groups: null}}  # Gate C v1 grouping: random types per seed
+  - {name: per_mbon_norm, set: {connectome.mbon_norm: per_mbon}}  # Gate C v1 normalization
+  - {name: shuffle, set: {mb.wiring: shuffle}}          # degree-preserving PN->KC shuffle
+  - {name: random, set: {mb.wiring: random}}            # same number of PN->KC edges, uniform
+  - {name: apl_uniform, set: {mb.apl_uniform: true}}    # real APL wiring -> uniform
+  - {name: apl_off, set: {rate.g_apl: 0.0, spiking.g_apl_mv: 0.0}}
+  - {name: kc_mbon_all, set: {mb.kc_mbon_all_to_all: true}}  # real KC->MBON mask -> all-to-all
+  - {name: random_all, set: {mb.wiring: random, mb.kc_mbon_all_to_all: true}}
+seed: 0
+n_seeds: 10                # docs/03-validation.md: >= 10 seeds
+simulators: [rate]
+workers: 10               # parallel seed processes for the spiking model
+warmup_ms: 10.0            # compile-only warm-up run before workers start
+rng_streams: {tokens: 10000, task: 20000, noise: 1000}  # stream offsets: tokens/task = seed + offset; noise = seed * noise + k
+
+mb:
+  source: flywire          # real PN->KC edges, KC->MBON mask, per-KC APL weights (ADR 0006)
+  compartments: [even, odd]  # one-hot output groups
+  mbon_groups: {even: *ppl1, odd: *pam}  # output = DAN-cluster group (ADR 0007)
+
+connectome:                # data/README.md
+  dir: data/flywire_783
+  connections: proofread_connections_783.feather
+  annotations: Supplemental_file1_neuron_annotations.tsv
+  col_pre: pre_pt_root_id
+  col_post: post_pt_root_id
+  col_syn: syn_count
+  side: right
+  min_synapses: 5          # arbitrary: a PN->KC pair with >= 5 synapses counts as one claw; also the KC->MBON mask threshold
+  kc_min_claws: 1          # keep KCs with >= 1 uniglomerular-PN claw (drops non-olfactory KCs)
+  mbon_norm: group         # one KC->MBON scale per output group (ADR 0007); chosen on rate seeds 0-9, held-out check on 20-29
+
+tokens:
+  names: [even, odd, A, B]  # state tokens + input tokens; (S, x) is presented as the union
+  pn_active_frac: 0.15     # arbitrary: union of two tokens ~ 0.28 of PNs -> P(>=3 of 5 claws) ~ 14%
+  pn_on_hz: 200.0          # arbitrary (PN odor response rates unverified)
+  pn_spont_hz: 2.0         # arbitrary
+
+plasticity:                # ADR 0004 (trial-level rule; recovery term is an assumption)
+  w0: 1.0                  # arbitrary baseline weight (relative units)
+  eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
+  eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
+  elig_ref_hz: 20.0        # graded eligibility (ADR 0005); arbitrary, chosen on held-out seeds 10-19
+
+readout:
+  kc_active_hz: 2.0        # arbitrary: KC counted active (= 1 spike in a 500 ms window)
+  uncertain_band: 0.1      # arbitrary: |valence| below this -> "uncertain"
+
+rate:                      # rate model only (no noise)
+  w_pn_kc: 1.0             # arbitrary
+  kc_theta: 450.0          # arbitrary: between 2 and 3 active claws (2*200 vs 3*200 Hz)
+  kc_gain: 0.1            # arbitrary: ~10 Hz for a 3-claw KC, like the spiking model
+  g_apl: 20.0              # arbitrary
+  mbon_gain: 20.0          # arbitrary
+
+spiking:                   # Brian2 LIF (ADR 0003); time constants unverified
+  dt_ms: 0.1
+  codegen_target: cython
+  v_rest_mv: -70.0
+  v_reset_mv: -70.0
+  v_thresh_mv: -50.0
+  refractory_ms: 2.0
+  noise_sigma_mv: 2.0      # arbitrary background membrane noise
+  tau_kc_ms: 10.0
+  tau_mbon_ms: 20.0
+  tau_apl_ms: 20.0
+  w_pn_kc_mv: 2.0
+  g_apl_mv: 0.03
+  w_kc_mbon_mv: 1.0
+
+protocol:
+  duration_ms: 500.0       # arbitrary presentation window (one loop step)
+  n_test: 20               # test presentations per transition (no plasticity)
+  n_train: 20              # training epochs over the 4 transitions (as validated in ADR 0005)
+
+order:                     # 2a: AB vs BA, readout integrates both segments
+  segment_ms: [10.0, 30.0, 250.0]  # swept: short segments let membrane/APL carry-over (tau 10-20 ms) matter
+  n_train: 10
+  n_test: 10
+
+loop:                      # 2c: closed loop, each step from rest
+  lengths: [10, 50, 100]
+  n_seq: 10                # sequences per length per seed
+  p_input_a: 0.5           # probability that a step's input is A (else B)
+
+robustness:                # 2d: spiking only
+  length: 50
+  n_seq: 5
+  gaps_ms: [0.0, 50.0, 200.0]       # carry-over between steps with spontaneous input in the gap
+  noise_sigma_mv: [1.0, 4.0, 8.0]   # membrane noise levels (default 2.0)
+
+controls:
+  ridge: 1.0               # arbitrary ridge for the linear-classifier baselines
+  pn_active_hz: 20.0       # arbitrary: PN counted active in the PN-direct control (spont 2, on 200)
+
+gate:
+  step_acc_target: 0.99    # docs/02-roadmap.md Gate B target

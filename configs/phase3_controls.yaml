@@ -2,10 +2,21 @@
 # real wiring vs controls and ablations, under increasing membrane noise (all variants are at
 # ceiling at the default noise in Phase 2, so differences can only show under stress).
 # Sources: docs/04-research-notes.md. "arbitrary" = arbitrary default, tuned for Gate A only.
+# MBON types by the DAN cluster of their dendritic compartments (ADR 0007; docs/04-research-notes.md).
+# PPL1 compartments: alpha', alpha2, alpha3, gamma1, gamma2; all others PAM (Li et al. 2020).
+# Excluded: MBON10 (numbering unverified), 22 (calyx), 23 (unknown), 30 / 33 (span both clusters).
+mbon_clusters:
+  ppl1: &ppl1 [MBON11, MBON12, MBON13, MBON14, MBON15, MBON15-like, MBON16, MBON17, MBON17-like,
+               MBON18, MBON19, MBON20, "MBON25,MBON34", MBON28, MBON31, MBON32, MBON35]
+  pam: &pam [MBON01, MBON02, MBON03, MBON04, MBON05, MBON06, MBON07, MBON09, MBON21, MBON24,
+             MBON26, MBON27, MBON29]
 experiment: parity_table
 seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 variants:
   - {name: real, set: {}}
+  - {name: swap, set: {mb.mbon_groups: {even: *pam, odd: *ppl1}}}  # labels swapped
+  - {name: arbitrary, set: {mb.mbon_groups: null}}  # Gate C v1 grouping: random types per seed
+  - {name: per_mbon_norm, set: {connectome.mbon_norm: per_mbon}}  # Gate C v1 normalization
   - {name: shuffle, set: {mb.wiring: shuffle}}          # degree-preserving PN->KC shuffle
   - {name: random, set: {mb.wiring: random}}            # same number of PN->KC edges, uniform
   - {name: apl_uniform, set: {mb.apl_uniform: true}}    # real APL wiring -> uniform
@@ -22,7 +33,8 @@ rng_streams: {tokens: 10000, task: 20000, noise: 1000}  # stream offsets: tokens
 
 mb:
   source: flywire          # real PN->KC edges, KC->MBON mask, per-KC APL weights (ADR 0006)
-  compartments: [even, odd]  # one-hot output groups; real MBON types are dealt to them per seed
+  compartments: [even, odd]  # one-hot output groups
+  mbon_groups: {even: *ppl1, odd: *pam}  # output = DAN-cluster group (ADR 0007)
 
 connectome:                # data/README.md
   dir: data/flywire_783
@@ -34,6 +46,7 @@ connectome:                # data/README.md
   side: right
   min_synapses: 5          # arbitrary: a PN->KC pair with >= 5 synapses counts as one claw; also the KC->MBON mask threshold
   kc_min_claws: 1          # keep KCs with >= 1 uniglomerular-PN claw (drops non-olfactory KCs)
+  mbon_norm: group         # one KC->MBON scale per output group (ADR 0007); chosen on rate seeds 0-9, held-out check on 20-29
 
 tokens:
   names: [even, odd, A, B]  # state tokens + input tokens; (S, x) is presented as the union

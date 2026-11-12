@@ -3,7 +3,7 @@
 `load_mb(conn_cfg)` returns, for one hemisphere:
   n_pn, n_kc, pn_edge/kc_edge (uniglomerular PN -> KC edges with >= min_synapses),
   kc_mbon (n_mbon, n_kc) synapse counts, mbon_type (n_mbon,), kc_to_apl / apl_to_kc (n_kc,)
-  synapse counts, kc_kc (n_kc, n_kc) synapse counts (not used by the model yet), and ids.
+  synapse counts (MBONs = those whose KC input comes mostly from this side), kc_kc (n_kc, n_kc) synapse counts (not used by the model yet), and ids.
 Connection counts are summed over neuropils. The result is cached as .npz next to the data.
 """
 
@@ -24,7 +24,7 @@ def load_mb(conn_cfg: dict) -> dict:
 def _load(key: str) -> dict:
     c = json.loads(key)
     d = ROOT / c["dir"]
-    cache = d / f"mb_{c['side']}_min{c['min_synapses']}.npz"
+    cache = d / f"mb_{c['side']}_min{c['min_synapses']}_v2.npz"  # v2: MBONs chosen by KC input side
     if not cache.exists():
         np.savez_compressed(cache, **_extract(c, d))
     z = np.load(cache, allow_pickle=False)
@@ -49,14 +49,17 @@ def _extract(c: dict, d: Path) -> dict:
     pn_ids = np.sort(rid[side & (a["cell_class"] == "ALPN")
                          & (a["cell_sub_class"] == "uniglomerular")])
     kc_all = np.sort(rid[side & (a["cell_class"] == "Kenyon_Cell")])
-    mbon_mask = side & (a["cell_class"] == "MBON")
+    kc_other = np.sort(rid[~side & (a["cell_class"] == "Kenyon_Cell")])
+    # MBONs of either soma side: some types (e.g. MBON01, 04-06) have the soma contralateral to
+    # their MB dendrites, so they are selected below by where their KC input comes from.
+    mbon_mask = a["cell_class"] == "MBON"
     order = np.argsort(rid[mbon_mask])
     mbon_ids, mbon_type = rid[mbon_mask][order], a["cell_type"][mbon_mask][order]
     apl_ids = rid[side & (a["cell_type"] == "APL")]
     assert len(apl_ids) == 1, apl_ids
 
     t = pf.read_table(d / c["connections"], columns=[c["col_pre"], c["col_post"], c["col_syn"]])
-    pre_set = np.concatenate([pn_ids, kc_all, apl_ids])
+    pre_set = np.concatenate([pn_ids, kc_all, kc_other, apl_ids])
     post_set = np.concatenate([kc_all, mbon_ids, apl_ids])
     import pyarrow as pa
 
@@ -79,6 +82,8 @@ def _extract(c: dict, d: Path) -> dict:
     claws = (pn_kc >= c["min_synapses"]).sum(1)
     olf = claws >= c["kc_min_claws"]  # KCs with uniglomerular-PN claws (drops e.g. visual KCs)
     kc_ids = kc_all[olf]
+    mine = matrix(mbon_ids, kc_all).sum(1) > matrix(mbon_ids, kc_other).sum(1)  # MBONs of this MB
+    mbon_ids, mbon_type = mbon_ids[mine], mbon_type[mine]
     kc_edge, pn_edge = np.nonzero(pn_kc[olf] >= c["min_synapses"])
     return {
         "pn_ids": pn_ids, "kc_ids": kc_ids, "mbon_ids": mbon_ids,

@@ -6,7 +6,7 @@ seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 simulators: [spiking]
 warmup_ms: 10.0            # compile-only warm-up run before workers start
 workers: 10               # parallel seed processes for the spiking model
-rng_streams: {tokens: 10000, task: 20000, noise: 1000, table: 30000}  # table = seed + offset (random DFAs)
+rng_streams: {tokens: 10000, task: 20000, noise: 1000, table: 30000, fly: 100}  # table = seed + offset (random DFAs); fly: wiring seed offset (unused by one fly)
 
 tasks:
   - {kind: mod, n: 3}

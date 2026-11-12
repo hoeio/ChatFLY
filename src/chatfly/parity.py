@@ -330,8 +330,8 @@ def exp_parity(cfg: dict, seed: int) -> dict:
                 c2 = copy.deepcopy(cfg)
                 c2["spiking"]["noise_sigma_mv"] = sigma
                 for apl0 in (False, True):
-                    make_sim(kind, c2, seed, g_apl_zero=apl0).present(
-                        np.zeros(cfg["mb"]["n_pn"]), cfg["warmup_ms"])
+                    warm = make_sim(kind, c2, seed, g_apl_zero=apl0)
+                    warm.present(np.zeros(warm.n_pn), cfg["warmup_ms"])
             with ProcessPoolExecutor(cfg["workers"]) as ex:
                 seeds = list(ex.map(run_seed, jobs))
         else:

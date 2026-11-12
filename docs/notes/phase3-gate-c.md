@@ -68,7 +68,6 @@ For comparison, synthetic wiring in Phase 2 gave 10/10 at σ 2, was robust to σ
 Runs (all on commit 2394e2f or code-identical predecessors):
 - `results/20261112-203652_phase3_parity_flywire_s0`: full Phase 2 protocol on real wiring.
 - `results/20261112-193520_phase3_controls_s0`: spiking controls × noise.
-- `results/20261112-193240_phase3_controls_rate_s0`: rate controls, seeds 0–9.
 - `results/20261112-193424_phase3_heldout_rate_s0`: rate held-out check, seeds 20–29.
 
 ## Full protocol on real wiring (10 seeds; Phase 2 synthetic values from `phase2-gate-b.md` for comparison)
@@ -100,17 +99,17 @@ Runs (all on commit 2394e2f or code-identical predecessors):
 | apl_off | 0.924 (6) | 0.626 (0) | 0.517 (0) | 0.500 (0) |
 | kc_mbon_all (all-to-all readout) | 0.989 (9) | 0.985 (7) | 0.791 (2) | 0.635 (0) |
 
-Rate model (seeds 0–9 / held-out 20–29, mean):
-- real: 1.000 / 1.000
-- arbitrary: 0.925 / 0.975
-- per_mbon: 0.675 / 0.625
-- shuffle: 0.775 / 1.000
-- random: 0.900 / 0.975
-- apl_uniform: 0.675 / 1.000
-- apl_off: 0.650 / 1.000
-- kc_mbon_all: 1.000 / 1.000
+Rate model, held-out seeds 20–29 (`phase3_heldout_rate`, mean):
+- real: 1.000
+- arbitrary: 0.975
+- per_mbon: 0.625
+- shuffle: 1.000
+- random: 0.975
+- apl_uniform: 1.000
+- apl_off: 1.000
+- kc_mbon_all: 1.000
 
-The seeds 0–9 rate column for the real variant comes from the diagnostic before `group` was set as the default (ADR 0007). The v2 controls_rate run used the per_mbon scale for every variant except where stated. **The held-out column is the clean one.**
+The rate model is at ceiling for almost every variant. The earlier `phase3_controls_rate` v2 run (`results/20261112-193240_...`) predates `mbon_norm: group`, so it measures the per-MBON scale and is superseded.
 
 ## Contribution of each structural component
 

@@ -128,3 +128,7 @@ The rate model is at ceiling for almost every variant. The earlier `phase3_contr
 ## Interpretation
 
 The task is still solved by the KC expansion plus the dopamine rule. The PN-direct and teacher-shuffle controls are at chance. However, the PN linear classifier reaches 0.988, so as in Phase 2 the task is nearly linearly separable at the input. The real connectome's specific PN→KC and APL structure adds nothing measurable here. What makes the real MB work is the readout organization by DAN cluster, and even that is a little worse than an idealized all-to-all readout.
+
+## Decision (user, 2026-11-12)
+
+Accepted as a near-pass. The strict criterion (all seeds ≥ 0.99) is not met: 9/10 in the full run. The "no measurable contribution of the real PN→KC / APL structure" finding stands. Phase 4 proceeds on real wiring with the ADR 0007 readout.

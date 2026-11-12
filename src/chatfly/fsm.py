@@ -135,6 +135,15 @@ def _job(args):
     return out
 
 
+def _warm(kind, cfg, spec, arch="single", k=1):
+    """Compile once in the parent so worker processes only hit Brian2's code cache."""
+    task = make_task(spec, np.random.default_rng(0))
+    c = task_cfg(cfg, task)
+    for sim in Flies(kind, c, task, cfg["seeds"][0], arch, k).sims:
+        if hasattr(sim, "n_kc"):
+            sim.present(np.zeros(sim.n_pn), cfg["warmup_ms"])
+
+
 def exp_fsm_sweep(cfg: dict, seed: int) -> dict:
     """Every task in cfg["tasks"] x cfg["seeds"], for each simulator."""
     out = []
@@ -143,6 +152,7 @@ def exp_fsm_sweep(cfg: dict, seed: int) -> dict:
         for spec in cfg["tasks"]:
             jobs = [(kind, cfg, spec, s) for s in cfg["seeds"]]
             if kind == "spiking" and cfg.get("workers", 1) > 1:
+                _warm(kind, cfg, spec)
                 with ProcessPoolExecutor(cfg["workers"]) as ex:
                     rows = list(ex.map(_job, jobs))
             else:
@@ -264,6 +274,7 @@ def exp_multi_fly(cfg: dict, seed: int) -> dict:
             for a in cfg["archs"]:
                 jobs = [(kind, cfg, spec, a["arch"], a.get("k", 1), s) for s in cfg["seeds"]]
                 if kind == "spiking" and cfg.get("workers", 1) > 1:
+                    _warm(kind, cfg, spec, a["arch"], a.get("k", 1))
                     with ProcessPoolExecutor(cfg["workers"]) as ex:
                         rows = list(ex.map(_multi_job, jobs))
                 else:

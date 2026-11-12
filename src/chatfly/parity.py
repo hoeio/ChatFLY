@@ -61,12 +61,23 @@ def make_sim(kind, cfg, seed, k=0, wiring="random", g_apl_zero=False):
 
 
 def train_table(sim, pats, cfg, rng, random_teacher=False):
+    """protocol.teach = "always" (default; ADR 0004 as used for Gate B) or "on_error":
+    exploratory variant where the teacher fires only if the output is wrong or its
+    confidence is below protocol.teach_margin (a stand-in for MBON->DAN error feedback)."""
     p = cfg["protocol"]
+    on_error = p.get("teach", "always") == "on_error"
     for _ in range(p["n_train"]):
         for i in rng.permutation(len(TRANS)):
             s, x, t = TRANS[i]
             tgt = int(rng.integers(len(STATES))) if random_teacher else STATES.index(t)
-            sim.present(pair(pats, s, x), p["duration_ms"], dan_for(tgt, sim.n_comp))
+            dan = dan_for(tgt, sim.n_comp)
+            if not on_error:
+                sim.present(pair(pats, s, x), p["duration_ms"], dan)
+                continue
+            out = sim.present(pair(pats, s, x), p["duration_ms"])
+            d, c = decode(sim, out["mbon"])
+            if d != tgt or c < p["teach_margin"]:
+                sim.learn(out["kc"], dan)
 
 
 def test_table(sim, pats, cfg):
@@ -234,6 +245,29 @@ def run_seed(args):
     out["controls"] = ctrl
     out["wall_s"] = time.perf_counter() - t0
     return out
+
+
+def exp_parity_table(cfg: dict, seed: int) -> dict:
+    """Diagnostic: train + test the transition table only, for cfg["seeds"], in parallel."""
+    out = {}
+    for kind in cfg["simulators"]:
+        with ProcessPoolExecutor(cfg["workers"]) as ex:
+            rows = list(ex.map(_table_job, [(kind, cfg, s) for s in cfg["seeds"]]))
+        out[kind] = rows
+        log.info("%s: %s", kind, [(r["seed"], round(r["step_acc"], 3)) for r in rows])
+    return out
+
+
+def _table_job(args):
+    kind, cfg, s = args
+    st = cfg["rng_streams"]
+    rng = np.random.default_rng(s + st["task"])
+    pats = token_patterns(cfg, np.random.default_rng(s + st["tokens"]))
+    sim = make_sim(kind, cfg, s)
+    train_table(sim, pats, cfg, rng)
+    tt = test_table(sim, pats, cfg)
+    per = np.array(tt["ok"]).reshape(len(TRANS), -1).mean(1)
+    return {"seed": s, "step_acc": tt["acc"], "per_transition": per.tolist()}
 
 
 def summarize(seeds, cfg):

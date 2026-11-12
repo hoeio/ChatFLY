@@ -1,0 +1,242 @@
+"""Phase 2 / Gate B: order discrimination (2a), parity transition table (2b), closed loop
+(2c), and noise / step-spacing robustness (2d). ADR 0002.
+
+The state token S and the input token x are presented together as the union (element-wise
+max) of their PN patterns. Output compartments are one-hot states [even, odd]. Teaching
+(ADR 0004 rule): DAN depresses every compartment except the target one.
+"""
+
+import copy
+import logging
+import time
+from concurrent.futures import ProcessPoolExecutor
+
+import numpy as np
+
+from chatfly.conditioning import token_patterns
+from chatfly.sim import SIMULATORS
+
+log = logging.getLogger("chatfly")
+STATES = ["even", "odd"]
+
+
+def delta(s: str, x: str) -> str:
+    """Parity transition: A flips the state, B keeps it."""
+    return s if x == "B" else STATES[1 - STATES.index(s)]
+
+
+TRANS = [(s, x, delta(s, x)) for s in STATES for x in ["A", "B"]]
+
+
+def pair(pats, s, x):
+    return np.maximum(pats[s], pats[x])
+
+
+def dan_for(target: int, n_comp: int) -> np.ndarray:
+    d = np.ones(n_comp)
+    d[target] = 0.0
+    return d
+
+
+def decode(sim, mbon) -> tuple[int | None, float]:
+    """argmax compartment-mean MBON rate; confidence = (top - second) / sum; None if silent."""
+    comp = np.array([mbon[sim.mbon_comp == c].mean() for c in range(sim.n_comp)])
+    if comp.sum() <= 0:
+        return None, 0.0
+    o = np.sort(comp)[::-1]
+    return int(np.argmax(comp)), float((o[0] - o[1]) / comp.sum())
+
+
+def make_sim(kind, cfg, seed, wiring="random", g_apl_zero=False):
+    cfg = copy.deepcopy(cfg)
+    if g_apl_zero:
+        cfg["rate"]["g_apl"] = 0.0
+        cfg["spiking"]["g_apl_mv"] = 0.0
+    if wiring == "shuffled":  # degree-preserving PN->KC shuffle (see Simulator.__init__)
+        cfg["mb"]["claws_override"] = "shuffle"
+    return SIMULATORS[kind](cfg, seed)
+
+
+def train_table(sim, pats, cfg, rng, random_teacher=False):
+    p = cfg["protocol"]
+    for _ in range(p["n_train"]):
+        for i in rng.permutation(len(TRANS)):
+            s, x, t = TRANS[i]
+            tgt = int(rng.integers(len(STATES))) if random_teacher else STATES.index(t)
+            sim.present(pair(pats, s, x), p["duration_ms"], dan_for(tgt, sim.n_comp))
+
+
+def test_table(sim, pats, cfg):
+    """Per-step accuracy on isolated (S, x) presentations; also returns PN/KC counts + labels."""
+    p = cfg["protocol"]
+    ok, conf, X_pn, X_kc, y = [], [], [], [], []
+    for s, x, t in TRANS:
+        for _ in range(p["n_test"]):
+            out = sim.present(pair(pats, s, x), p["duration_ms"])
+            d, c = decode(sim, out["mbon"])
+            ok.append(d == STATES.index(t))
+            conf.append(c)
+            X_pn.append(out["pn"])
+            X_kc.append(out["kc"])
+            y.append(STATES.index(t))
+    return {"acc": float(np.mean(ok)), "conf": conf, "ok": ok,
+            "X_pn": np.array(X_pn), "X_kc": np.array(X_kc), "y": np.array(y)}
+
+
+def linear_baseline(X, y, ridge, rng) -> float:
+    """Ridge least-squares linear classifier, 2-fold split stratified per transition.
+    The 'just a classifier' baseline of docs/03-validation.md."""
+    idx = np.arange(len(y)).reshape(len(TRANS), -1)  # rows = transitions
+    for row in idx:
+        rng.shuffle(row)
+    half = idx.shape[1] // 2
+    tr, te = idx[:, :half].ravel(), idx[:, half:].ravel()
+    mu, sd = X[tr].mean(0), X[tr].std(0) + 1e-9
+    Z = np.c_[(X - mu) / sd, np.ones(len(X))]
+    t = 2.0 * y - 1.0
+    w = np.linalg.solve(Z[tr].T @ Z[tr] + ridge * np.eye(Z.shape[1]), Z[tr].T @ t[tr])
+    return float(np.mean((Z[te] @ w > 0) == (t[te] > 0)))
+
+
+def order_task(sim, pats, cfg, rng):
+    """2a: AB -> class 0, BA -> class 1. The readout integrates the whole 2-segment window,
+    so only order information that survives in the network can be used."""
+    p = cfg["order"]
+
+    def show(a, b, dan=None):
+        o1 = sim.present(pats[a], p["segment_ms"], reset=True)
+        o2 = sim.present(pats[b], p["segment_ms"], reset=False)
+        kc, mbon = (o1["kc"] + o2["kc"]) / 2, (o1["mbon"] + o2["mbon"]) / 2
+        if dan is not None:
+            sim.learn(kc, dan)
+        return mbon
+
+    seqs = [(("A", "B"), 0), (("B", "A"), 1)]
+    for _ in range(p["n_train"]):
+        for i in rng.permutation(2):
+            (a, b), c = seqs[i]
+            show(a, b, dan_for(c, sim.n_comp))
+    ok = [decode(sim, show(a, b))[0] == c for (a, b), c in seqs for _ in range(p["n_test"])]
+    return float(np.mean(ok))
+
+
+def run_loop(sim, pats, cfg, rng, length, gap_ms):
+    """2c: closed loop. The decoded state is fed back (fixed rule, no learning). gap_ms=None:
+    each step starts from rest; otherwise the network keeps its state and spontaneous PN input
+    is played for gap_ms before the next step (residual activity can leak in)."""
+    dur = cfg["protocol"]["duration_ms"]
+    spont = np.full(sim.n_pn, cfg["tokens"]["pn_spont_hz"])
+    true_s, fed = "even", "even"
+    step_ok, track_ok = [], []
+    for k in range(length):
+        x = "A" if rng.random() < 0.5 else "B"
+        if gap_ms is not None and k > 0:
+            sim.present(spont, gap_ms, reset=False)
+        out = sim.present(pair(pats, fed, x), dur, reset=gap_ms is None)
+        d, _ = decode(sim, out["mbon"])
+        new = STATES[d] if d is not None else None
+        step_ok.append(new == delta(fed, x))
+        true_s = delta(true_s, x)
+        track_ok.append(new == true_s)
+        fed = new if new is not None else fed  # silent readout: keep the last state
+    return {"step_acc": float(np.mean(step_ok)), "seq_ok": bool(all(track_ok)),
+            "final_ok": bool(track_ok[-1])}
+
+
+def run_seed(args):
+    kind, cfg, seed = args
+    t0 = time.perf_counter()
+    rng = np.random.default_rng(seed + 20_000)
+    pats = token_patterns(cfg, np.random.default_rng(seed + 10_000))
+    ridge = cfg["controls"]["ridge"]
+    out = {"seed": seed}
+
+    sim = make_sim(kind, cfg, seed)
+    active = sim.present(pair(pats, "even", "A"), cfg["protocol"]["duration_ms"])["kc"]
+    out["pair_sparseness"] = float((active >= sim.kc_active_hz).mean())
+    out["order_acc"] = order_task(make_sim(kind, cfg, seed), pats, cfg, rng)
+
+    train_table(sim, pats, cfg, rng)
+    tt = test_table(sim, pats, cfg)
+    out["step_acc"] = tt["acc"]
+    out["step_conf"] = float(np.mean(tt["conf"]))
+    out["baseline_pn_linear"] = linear_baseline(tt["X_pn"], tt["y"], ridge, rng)
+    out["baseline_kc_linear"] = linear_baseline(tt["X_kc"], tt["y"], ridge, rng)
+    w_trained = sim.w.copy()
+
+    loops = {}
+    for L in cfg["loop"]["lengths"]:
+        res = [run_loop(sim, pats, cfg, rng, L, None) for _ in range(cfg["loop"]["n_seq"])]
+        loops[str(L)] = {k: float(np.mean([r[k] for r in res]))
+                         for k in ["step_acc", "seq_ok", "final_ok"]}
+    out["loop"] = loops
+
+    if kind == "spiking":  # 2d: only the spiking model has noise and carry-over
+        rob = {}
+        L = cfg["robustness"]["length"]
+        for gap in cfg["robustness"]["gaps_ms"]:
+            sim.w = w_trained.copy()
+            res = [run_loop(sim, pats, cfg, rng, L, gap) for _ in range(cfg["robustness"]["n_seq"])]
+            rob[f"gap_{gap}"] = {k: float(np.mean([r[k] for r in res]))
+                                 for k in ["step_acc", "seq_ok"]}
+        for sigma in cfg["robustness"]["noise_sigma_mv"]:
+            c2 = copy.deepcopy(cfg)
+            c2["spiking"]["noise_sigma_mv"] = sigma
+            s2 = make_sim(kind, c2, seed)
+            train_table(s2, pats, c2, rng)
+            rob[f"sigma_{sigma}"] = {"step_acc": test_table(s2, pats, c2)["acc"]}
+        out["robustness"] = rob
+
+    ctrl = {}
+    for name, kw in [("teacher_shuffle", {}), ("wiring_shuffle", {"wiring": "shuffled"}),
+                     ("apl_ablation", {"g_apl_zero": True})]:
+        s2 = make_sim(kind, cfg, seed, **kw)
+        train_table(s2, pats, cfg, rng, random_teacher=name == "teacher_shuffle")
+        ctrl[name] = test_table(s2, pats, cfg)["acc"]
+        if name == "apl_ablation":
+            a2 = s2.present(pair(pats, "even", "A"), cfg["protocol"]["duration_ms"])["kc"]
+            ctrl["apl_ablation_sparseness"] = float((a2 >= s2.kc_active_hz).mean())
+    out["controls"] = ctrl
+    out["wall_s"] = time.perf_counter() - t0
+    return out
+
+
+def summarize(seeds, cfg):
+    def ms(xs):
+        xs = np.asarray(xs, float)
+        return {"mean": float(xs.mean()), "sd": float(xs.std(ddof=1)) if len(xs) > 1 else 0.0,
+                "min": float(xs.min())}
+
+    out = {"step_acc": ms([s["step_acc"] for s in seeds]),
+           "pair_sparseness": ms([s["pair_sparseness"] for s in seeds]),
+           "order_acc": ms([s["order_acc"] for s in seeds]),
+           "baseline_pn_linear": ms([s["baseline_pn_linear"] for s in seeds]),
+           "baseline_kc_linear": ms([s["baseline_kc_linear"] for s in seeds]),
+           "controls": {k: ms([s["controls"][k] for s in seeds]) for k in seeds[0]["controls"]},
+           "loop": {L: {k: ms([s["loop"][L][k] for s in seeds]) for k in seeds[0]["loop"][L]}
+                    for L in seeds[0]["loop"]}}
+    p = out["step_acc"]["mean"]
+    out["loop_pn_prediction"] = {L: p ** int(L) for L in seeds[0]["loop"]}
+    if "robustness" in seeds[0]:
+        out["robustness"] = {k: {m: ms([s["robustness"][k][m] for s in seeds])
+                                 for m in seeds[0]["robustness"][k]}
+                             for k in seeds[0]["robustness"]}
+    out["gate_b"] = {"step_acc_target": cfg["gate"]["step_acc_target"],
+                     "step_acc_pass": p >= cfg["gate"]["step_acc_target"]}
+    return out
+
+
+def exp_parity(cfg: dict, seed: int) -> dict:
+    out = {}
+    for kind in cfg["simulators"]:
+        t0 = time.perf_counter()
+        jobs = [(kind, cfg, seed + i) for i in range(cfg["n_seeds"])]
+        if cfg.get("workers", 1) > 1 and kind == "spiking":
+            with ProcessPoolExecutor(cfg["workers"]) as ex:
+                seeds = list(ex.map(run_seed, jobs))
+        else:
+            seeds = [run_seed(j) for j in jobs]
+        out[kind] = {"summary": summarize(seeds, cfg), "seeds": seeds,
+                     "wall_s": time.perf_counter() - t0}
+        log.info("%s summary: %s (%.0fs)", kind, out[kind]["summary"], out[kind]["wall_s"])
+    return out

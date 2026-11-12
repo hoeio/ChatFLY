@@ -18,9 +18,12 @@ def pn_kc_claws(n_pn: int, n_kc: int, claws: int, rng) -> np.ndarray:
 
 
 class Simulator(ABC):
-    """`present(pn_rates_hz, duration_ms, dan=None) -> {"kc": Hz (n_kc,), "mbon": Hz (n_mbon,)}`.
+    """`present(pn_rates_hz, duration_ms, dan=None, reset=True)`
+    -> {"pn": Hz (n_pn,), "kc": Hz (n_kc,), "mbon": Hz (n_mbon,)}.
 
-    Each presentation starts from the resting network state (no carry-over). If `dan`
+    With reset=True a presentation starts from the resting network state; with reset=False
+    the spiking model continues from the previous state (residual activity carries over;
+    the rate model is a steady-state model and has no carry-over). If `dan`
     (one value in [0, 1] per compartment) is given, the KC->MBON weights are updated
     from this presentation's KC activity afterwards; otherwise the weights are untouched.
     """
@@ -33,14 +36,16 @@ class Simulator(ABC):
         self.n_pn, self.n_kc = mb["n_pn"], mb["n_kc"]
         self.n_comp, self.m = len(mb["compartments"]), mb["mbon_per_compartment"]
         self.claws = pn_kc_claws(self.n_pn, self.n_kc, mb["claws_per_kc"], self.rng)
+        if mb.get("claws_override") == "shuffle":  # degree-preserving control (03-validation)
+            self.claws = self.rng.permutation(self.claws.ravel()).reshape(self.claws.shape)
         p = cfg["plasticity"]
         self.w0, self.eta_dep, self.eta_rec = p["w0"], p["eta_dep"], p["eta_rec"]
         self.kc_active_hz = cfg["readout"]["kc_active_hz"]
         self.w = np.full((self.n_comp, self.n_kc), self.w0)
         self.mbon_comp = np.repeat(np.arange(self.n_comp), self.m)  # compartment of each MBON
 
-    def present(self, pn_rates_hz, duration_ms, dan=None):
-        out = self._run(np.asarray(pn_rates_hz, float), duration_ms)
+    def present(self, pn_rates_hz, duration_ms, dan=None, reset=True):
+        out = self._run(np.asarray(pn_rates_hz, float), duration_ms, reset)
         if dan is not None:
             self.learn(out["kc"], np.asarray(dan, float))
         return out
@@ -53,13 +58,13 @@ class Simulator(ABC):
         self.w[:, act] = w - self.eta_dep * d * w + self.eta_rec * (1 - d) * (self.w0 - w)
 
     @abstractmethod
-    def _run(self, pn_rates_hz, duration_ms) -> dict[str, np.ndarray]: ...
+    def _run(self, pn_rates_hz, duration_ms, reset) -> dict[str, np.ndarray]: ...
 
 
 class RateSimulator(Simulator):
     """Threshold-linear KCs with global APL inhibition solved exactly at steady state. No noise."""
 
-    def _run(self, pn_rates_hz, duration_ms):
+    def _run(self, pn_rates_hz, duration_ms, reset):
         r = self.cfg["rate"]
         drive = r["w_pn_kc"] * pn_rates_hz[self.claws].sum(1) - r["kc_theta"]
 
@@ -71,7 +76,7 @@ class RateSimulator(Simulator):
         a = brentq(lambda a: kc(a).mean() - a, 0.0, hi) if hi > 0 else 0.0
         kc_rates = kc(a)
         mbon = r["mbon_gain"] * (self.w @ kc_rates) / self.n_kc
-        return {"kc": kc_rates, "mbon": np.repeat(mbon, self.m)}
+        return {"pn": pn_rates_hz, "kc": kc_rates, "mbon": np.repeat(mbon, self.m)}
 
 
 class SpikingSimulator(Simulator):
@@ -118,23 +123,27 @@ class SpikingSimulator(Simulator):
         self.syn_kc = np.asarray(self.kc_mbon.i[:])
         self.w_scale = s["w_kc_mbon_mv"] * mV
         self.kc.v = self.mbon.v = s["v_rest_mv"] * mV
+        self.pn_spk = b2.SpikeMonitor(self.pn, record=False)
         self.kc_spk = b2.SpikeMonitor(self.kc, record=False)
         self.mbon_spk = b2.SpikeMonitor(self.mbon, record=False)
         self.net = b2.Network(self.pn, self.kc, self.mbon, self.apl, pn_kc, kc_apl, apl_kc,
-                              self.kc_mbon, self.kc_spk, self.mbon_spk)
+                              self.kc_mbon, self.pn_spk, self.kc_spk, self.mbon_spk)
         self.target = s["codegen_target"]
         self.net.store("rest")
 
-    def _run(self, pn_rates_hz, duration_ms):
+    def _run(self, pn_rates_hz, duration_ms, reset):
         b2 = self.b2
         b2.prefs.codegen.target = self.target  # global pref: set right before every run
-        self.net.restore("rest")  # restores state, not the RNG: noise differs per presentation
+        if reset:
+            self.net.restore("rest")  # restores state, not the RNG: noise differs per call
+        mons = (self.pn_spk, self.kc_spk, self.mbon_spk)
+        before = [np.asarray(m.count[:]) for m in mons]
         self.pn.rates = pn_rates_hz * b2.Hz
         self.kc_mbon.w = self.w[self.syn_comp, self.syn_kc] * self.w_scale
         self.net.run(duration_ms * b2.ms)
         sec = duration_ms / 1000.0
-        return {"kc": np.asarray(self.kc_spk.count[:]) / sec,
-                "mbon": np.asarray(self.mbon_spk.count[:]) / sec}
+        return {k: (np.asarray(m.count[:]) - b0) / sec
+                for k, m, b0 in zip(("pn", "kc", "mbon"), mons, before, strict=True)}
 
 
 SIMULATORS = {"rate": RateSimulator, "spiking": SpikingSimulator}

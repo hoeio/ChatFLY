@@ -18,8 +18,8 @@ Brian2. The network is small, so NEST's scaling advantage does not matter, and c
 
 ## Consequences
 
-- The project now needs Python ≥ 3.13 (`pyproject.toml`). With Python 3.11, pip resolves an old Brian2 that fails to import with numpy 2 (`np.ndarray.ptp` was removed).
+- The project now needs Python ≥ 3.13 (`pyproject.toml`). Local observation, not from a source: with Python 3.11, pip resolves an old Brian2 that fails to import with numpy 2 (`np.ndarray.ptp` was removed).
 - Default target is `cython`. The first build of a new model compiles (seconds) and is cached afterwards. `numpy` is the fallback target (used in tests).
 - Revisit if large sweeps need multi-core or GPU: consider Brian2 standalone mode (`cpp_standalone`), or Brian2CUDA after checking its status.
 
-Sources (accessed 2026-11-12): https://pypi.org/pypi/Brian2 , https://brian2.readthedocs.io/en/stable/introduction/release_notes.html , https://nest-simulator.readthedocs.io/en/stable/whats_new/v3.8/index.html , https://nest-simulator.org/mailinglist/hyperkitty/list/users@nest-simulator.org/2026/5/ , https://www.frontiersin.org/articles/10.3389/fninf.2022.883700/text
+Sources (accessed 2026-11-12): https://pypi.org/pypi/Brian2 , https://brian2.readthedocs.io/en/stable/introduction/release_notes.html , https://nest-simulator.org/mailinglist/hyperkitty/list/users@nest-simulator.org/2026/5/ (mailing-list month index containing the NEST 3.10 release announcement; the release notes page itself was not checked, so treat the 3.10 details as partly verified) , https://www.frontiersin.org/articles/10.3389/fninf.2022.883700/text

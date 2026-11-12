@@ -1,0 +1,8 @@
+# Run-time estimate of the MB model vs KC count (Phase 1 re-estimate of docs/notes/phase0-runtime.md).
+experiment: bench
+seed: 0
+base: configs/phase1_conditioning.yaml  # all model parameters come from here
+simulators: [rate, spiking]
+n_kc: [500, 2000, 8000]                 # 2000 ~ KCs per hemisphere
+duration_ms: 500.0
+repeats: 3

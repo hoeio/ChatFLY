@@ -18,29 +18,32 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from chatfly.conditioning import exp_conditioning, token_patterns
 from chatfly.sim import SIMULATORS
 
 ROOT = Path(__file__).resolve().parents[2]
 log = logging.getLogger("chatfly")
 
 
-def git_commit() -> str:
+def git(*args) -> str:
     try:
-        sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        dirty = subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True)
+        return subprocess.check_output(["git", *args], cwd=ROOT, text=True)
     except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-    return sha + ("-dirty" if dirty.strip() else "")
+        return ""
 
 
 def start_run(config_path: Path, seed: int, results_dir: Path) -> Path:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = results_dir / f"{stamp}_{config_path.stem}_s{seed}"
-    run_dir.mkdir(parents=True)
-    shutil.copy(config_path, run_dir / "config.yaml")
+    run_dir.mkdir(parents=True, exist_ok=False)
+    shutil.copy(config_path, run_dir / "config.yaml")  # verbatim; meta.json seed wins over it
+    sha = git("rev-parse", "HEAD").strip() or "unknown"
+    dirty = bool(git("status", "--porcelain", "--untracked-files=no").strip())
+    if dirty:  # uncommitted changes: keep them so the run's code is recoverable
+        (run_dir / "patch.diff").write_text(git("diff", "HEAD"))
     meta = {
         "seed": seed,
-        "commit": git_commit(),
+        "commit": sha + ("-dirty" if dirty else ""),
         "config": str(config_path),
         "started": stamp,
         "python": sys.version.split()[0],
@@ -64,50 +67,31 @@ def start_run(config_path: Path, seed: int, results_dir: Path) -> Path:
     return run_dir
 
 
-def exp_empty(cfg: dict, seed: int) -> dict:
-    """Drive an unconnected population with random constant input; report rates per simulator."""
-    rng = np.random.default_rng(seed)
-    model = cfg["model"]
-    lo, hi = cfg["stimulus"]["drive_range_mv"]
-    stim = rng.uniform(lo, hi, model["n_neurons"])
-    out = {}
-    for kind in cfg["simulators"]:
-        t0 = time.perf_counter()
-        rates = SIMULATORS[kind](model, seed).present(stim, cfg["stimulus"]["duration_ms"])["main"]
-        out[kind] = {
-            "mean_rate_hz": float(rates.mean()),
-            "frac_active": float((rates > 0).mean()),
-            "wall_s": time.perf_counter() - t0,
-        }
-        log.info("%s: %s", kind, out[kind])
-    return out
-
-
 def exp_bench(cfg: dict, seed: int) -> dict:
-    """Wall time of one present() call vs population size (build excluded, warm-up excluded)."""
-    rng = np.random.default_rng(seed)
-    lo, hi = cfg["stimulus"]["drive_range_mv"]
-    dur = cfg["stimulus"]["duration_ms"]
+    """Wall time of one present() of the MB model vs KC count (first call, with codegen, excluded)."""
+    base = yaml.safe_load((ROOT / cfg["base"]).read_text())
+    pats = None
     rows = []
     for kind in cfg["simulators"]:
-        for n in cfg["sizes"]:
-            model = {**cfg["model"], "n_neurons": n}
+        for n_kc in cfg["n_kc"]:
+            model = {**base, "mb": {**base["mb"], "n_kc": n_kc}}
             t0 = time.perf_counter()
             sim = SIMULATORS[kind](model, seed)
-            stim = rng.uniform(lo, hi, n)
-            sim.present(stim, dur)  # warm-up: includes code generation / compilation
+            pats = token_patterns(model, np.random.default_rng(seed))
+            sim.present(pats["A"], cfg["duration_ms"], [1.0, 0.0])
             build_s = time.perf_counter() - t0
             t0 = time.perf_counter()
             for _ in range(cfg["repeats"]):
-                sim.present(stim, dur)
+                sim.present(pats["A"], cfg["duration_ms"], [1.0, 0.0])
             step_s = (time.perf_counter() - t0) / cfg["repeats"]
-            rows.append({"simulator": kind, "n": n, "build_and_first_s": build_s,
-                         "present_s": step_s, "realtime_factor": step_s / (dur / 1000.0)})
+            rows.append({"simulator": kind, "n_kc": n_kc, "build_and_first_s": build_s,
+                         "present_s": step_s,
+                         "realtime_factor": step_s / (cfg["duration_ms"] / 1000.0)})
             log.info("%s", rows[-1])
-    return {"duration_ms": dur, "rows": rows}
+    return {"duration_ms": cfg["duration_ms"], "rows": rows}
 
 
-EXPERIMENTS = {"empty": exp_empty, "bench": exp_bench}
+EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning}
 
 
 def main(argv=None) -> Path:
@@ -119,9 +103,16 @@ def main(argv=None) -> Path:
     cfg = yaml.safe_load(a.config.read_text())
     seed = cfg["seed"] if a.seed is None else a.seed
     run_dir = start_run(a.config, seed, a.results)
-    metrics = EXPERIMENTS[cfg["experiment"]](cfg, seed)
-    (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
-    log.info("done -> %s", run_dir)
+    status = "failed"
+    try:
+        metrics = EXPERIMENTS[cfg["experiment"]](cfg, seed)
+        (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
+        status = "done"
+    finally:
+        (run_dir / "status").write_text(status + "\n")
+        log.info("%s -> %s", status, run_dir)
+        for h in logging.getLogger().handlers:
+            h.close()
     return run_dir
 
 

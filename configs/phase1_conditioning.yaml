@@ -1,0 +1,60 @@
+# Phase 1 / Gate A: classical conditioning on a synthetic mushroom body.
+# Sources: docs/04-research-notes.md. "arbitrary" = arbitrary default, tuned for Gate A only.
+experiment: conditioning
+seed: 0
+n_seeds: 10                # docs/03-validation.md: >= 10 seeds
+simulators: [rate, spiking]
+
+mb:
+  n_pn: 150                # ~150 uniglomerular PNs (Choi 2022); FAFB counts more incl. multiglomerular
+  n_kc: 2000               # ~2000 KCs per hemisphere (Aso 2014)
+  claws_per_kc: 5          # EM 5.2 +- 1.6 claws per KC (Zheng 2022)
+  compartments: [approach, avoid]  # MBON group whose firing promotes approach / avoidance (arbitrary 2-compartment reduction of 15)
+  mbon_per_compartment: 4  # arbitrary (34 MBON cells / 21 types per hemisphere, Aso 2014)
+
+tokens:
+  names: [A, B, C, D]
+  pn_active_frac: 0.25     # arbitrary: fraction of PNs driven by a token (P(>=3 of 5 claws) ~ 10%)
+  pn_on_hz: 200.0          # arbitrary (PN odor response rates unverified)
+  pn_spont_hz: 2.0         # arbitrary
+
+plasticity:                # ADR 0004 (trial-level rule; recovery term is an assumption)
+  w0: 1.0                  # arbitrary baseline weight (relative units)
+  eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
+  eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
+
+readout:
+  kc_active_hz: 2.0        # arbitrary: KC counted active (= 1 spike in a 500 ms window)
+  uncertain_band: 0.1      # arbitrary: |valence| below this -> "uncertain"
+
+rate:                      # rate model only (no noise)
+  w_pn_kc: 1.0             # arbitrary
+  kc_theta: 450.0          # arbitrary: between 2 and 3 active claws (2*200 vs 3*200 Hz)
+  kc_gain: 0.1            # arbitrary: ~10 Hz for a 3-claw KC, like the spiking model
+  g_apl: 20.0              # arbitrary
+  mbon_gain: 20.0          # arbitrary
+
+spiking:                   # Brian2 LIF (ADR 0003); time constants unverified
+  dt_ms: 0.1
+  codegen_target: cython
+  v_rest_mv: -70.0
+  v_reset_mv: -70.0
+  v_thresh_mv: -50.0
+  refractory_ms: 2.0
+  noise_sigma_mv: 2.0      # arbitrary background membrane noise
+  tau_kc_ms: 10.0
+  tau_mbon_ms: 20.0
+  tau_apl_ms: 20.0
+  w_pn_kc_mv: 2.0
+  g_apl_mv: 0.03
+  w_kc_mbon_mv: 1.0
+
+protocol:
+  duration_ms: 500.0       # arbitrary presentation window
+  n_test: 3                # test presentations per token per test (no plasticity)
+  n_train: 5               # training trials per token
+  n_ext: 5                 # extinction trials (A, no US)
+
+gate:                      # Gate A criteria (docs/02-roadmap.md); range is arbitrary within the verified < 0.2 bound (Honegger 2011)
+  sparseness_range: [0.05, 0.15]
+  alpha: 0.01

@@ -1,33 +1,35 @@
-# 0005. Error-driven teaching for transition-table learning
+# 0005. Graded (rate-proportional) eligibility; error-gated teaching tested but not adopted
 
-- Status: Accepted (user decision after the Gate B failure, 2026-11-12)
+- Status: Accepted
 - Date: 2026-11-12
-- Amends: ADR 0004 (the plasticity rule itself is unchanged; this changes *when* the teacher DAN fires, and adds optional graded eligibility)
+- Amends: ADR 0004 (the form of the rule is unchanged; the eligibility becomes graded)
 
 ## Context
 
-Gate B failed for the spiking model: 6/10 seeds reached 99% step accuracy and the mean was 0.889 (`docs/notes/phase2-gate-b.md`). In the failing seeds, both outputs fire almost equally on some transitions. The teacher fires on every trial, so KCs shared between transitions with opposite targets are overwritten by whichever transition was trained last. Shared KCs fire faster than pure-conjunction KCs (9.5–12 Hz vs ~6.4 Hz) and carry about half of the MBON drive. The user chose to change the rule (option "error-driven rule").
+Gate B failed for the spiking model: 6/10 seeds reached 99% step accuracy and the mean was 0.889 (`docs/notes/phase2-gate-b.md`). In the failing seeds, both outputs fire almost equally on some transitions. KCs shared between transitions with opposite targets are overwritten by whichever transition was trained last. They also fire faster than pure-conjunction KCs (9.5–12 Hz vs ~6.4 Hz) and carry about half of the MBON drive. The readout weights KCs by rate, but the binary eligibility of ADR 0004 does not.
 
-Literature support for error-driven DAN activity (see `04-research-notes.md`):
-- In a spiking larval MB model, DANs encode prediction error through a feedback motif within the MB (Jürgensen et al.).
-- MBON→DAN feedback exists and lets memory units interact (Huang et al., Nature 2024).
-- Extinction-related MBONs drive DANs (Felsenberg 2017).
-These support the *existence* of MBON→DAN feedback that could gate teaching. They do not show that the fly's DANs implement exactly this error gate.
+After the failure, the user chose to fix the learning rule; my recommended option was an error-driven rule. I therefore tested two changes on the transition table, on **held-out seeds 10–19**, not the Gate B seeds 0–9.
 
-## Options
+## Options tested
 
-1. Always teach (ADR 0004 as used for Gate B): fails Gate B.
-2. Error-gated: the teacher DAN fires only if the decoded output is wrong or its confidence is below a margin. This is a stand-in for MBON→DAN error feedback; the gate is a fixed rule computed from the MBON readout, not learned.
-3. A graded prediction-error DAN signal (DAN = target − MBON prediction). Closer to Jürgensen et al., but it adds a modeled feedback circuit and more parameters.
+Spiking step accuracy over 10 held-out seeds (mean, seeds ≥ 0.99). Runs: `results/20261112-172735_phase2_sweep_on_error_s0`, `results/20261112-173849_phase2_sweep_always_s0`.
+
+| Eligibility | Always-on teaching | Error-gated teaching (margin 0.3) |
+|---|---|---|
+| Binary (ADR 0004), η_dep 0.5 / η_rec 0.3 | 0.956, 6/10 | 0.882, 2/10 |
+| Graded, elig_ref 20 Hz, η_dep 0.5 / η_rec 0.3 | **1.000, 10/10** | 1.000, 10/10 |
+
+With graded eligibility, all 6 tested (η_dep, η_rec) combinations under error-gating reached 1.000 and 10/10. With binary eligibility, results ranged from mean 0.875 (min 0.025) to 1.000 depending on the step sizes.
+
+1. Error-gated teaching: the teacher fires only if the output is wrong or uncertain, a stand-in for MBON→DAN error feedback (Jürgensen et al.; Huang et al. 2024). It is not sufficient with binary eligibility, and not needed with graded eligibility. It is also glue outside the MB model (CLAUDE.md principle 2).
+2. Graded eligibility: `elig_k = clip(rate_k / elig_ref_hz, 0, 1)` for active KCs, so a synapse changes in proportion to its KC's firing, the same way it contributes to the MBON. This is enough on its own.
 
 ## Decision
 
-Option 2, with step sizes and eligibility chosen by a sweep on **held-out seeds 10–19** (`configs/phase2_sweep_on_error.yaml`). Gate B is then re-run on seeds 0–9 with the chosen values, and Gate A is re-run with the same plasticity parameters so there is one model.
-
-The chosen values and the sweep result are recorded in `docs/notes/phase2-gate-b.md` (rerun section).
+Option 2 with always-on teaching, keeping η_dep = 0.5 and η_rec = 0.3 (the Gate A values), elig_ref_hz = 20 (arbitrary; chosen on held-out seeds). Error-gated teaching stays available as `protocol.teach: on_error`, but it is not used for the gates. Gate A and Gate B are both re-run with this rule, so there is one model.
 
 ## Consequences
 
-- The error gate lives in the task's teacher (`parity.train_table`), outside the MB simulator. It is glue between MBON and DAN, so CLAUDE.md principle 2 applies: it is a fixed threshold rule on the output and is reported as such.
-- The conditioning protocol (Gate A) keeps an always-on US: the US is the reinforcement, not a teacher. Only the plasticity parameters are shared.
-- In Phase 3 the gate can be replaced by connectome MBON→DAN connections, which turns this assumption into something testable by ablation.
+- This departs from the literal "error-driven" choice. The evidence showed that the decisive fix is in the rule's eligibility, and the error gate would only add glue. If the user still wants error-driven teaching, it is one config flag and has been validated on held-out seeds.
+- Graded eligibility is biologically plausible (more presynaptic activity, more cAMP/plasticity), but the exact dependence is unverified (see `04-research-notes.md`, plasticity row).
+- The recovery-term caveat of ADR 0004 still applies.

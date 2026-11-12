@@ -26,6 +26,7 @@ plasticity:                # ADR 0004 (trial-level rule; recovery term is an ass
   w0: 1.0                  # arbitrary baseline weight (relative units)
   eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
   eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
+  elig_ref_hz: 20.0        # graded eligibility (ADR 0005); arbitrary, chosen on held-out seeds 10-19
 
 readout:
   kc_active_hz: 2.0        # arbitrary: KC counted active (= 1 spike in a 500 ms window)
@@ -56,7 +57,7 @@ spiking:                   # Brian2 LIF (ADR 0003); time constants unverified
 protocol:
   duration_ms: 500.0       # arbitrary presentation window (one loop step)
   n_test: 20               # test presentations per transition (no plasticity)
-  n_train: 10              # training epochs over the 4 transitions
+  n_train: 20              # training epochs over the 4 transitions (as validated in ADR 0005)
 
 order:                     # 2a: AB vs BA, readout integrates both segments
   segment_ms: [10.0, 30.0, 250.0]  # swept: short segments let membrane/APL carry-over (tau 10-20 ms) matter

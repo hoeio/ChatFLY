@@ -23,6 +23,7 @@ plasticity:                # ADR 0004 (trial-level rule; recovery term is an ass
   w0: 1.0                  # arbitrary baseline weight (relative units)
   eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
   eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
+  elig_ref_hz: 20.0        # graded eligibility (ADR 0005); arbitrary, chosen on held-out seeds 10-19
 
 readout:
   kc_active_hz: 2.0        # arbitrary: KC counted active (= 1 spike in a 500 ms window)

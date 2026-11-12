@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 sim = ["brian2>=2.11"]
+connectome = ["pyarrow"]  # reads the FlyWire .feather files (Phase 3)
 dev = ["pytest", "ruff"]
 
 [tool.setuptools.packages.find]

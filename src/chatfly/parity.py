@@ -55,8 +55,8 @@ def make_sim(kind, cfg, seed, k=0, wiring="random", g_apl_zero=False):
     if g_apl_zero:
         cfg["rate"]["g_apl"] = 0.0
         cfg["spiking"]["g_apl_mv"] = 0.0
-    if wiring == "shuffled":  # degree-preserving PN->KC shuffle (see Simulator.__init__)
-        cfg["mb"]["claws_override"] = "shuffle"
+    if wiring == "shuffled":  # degree-preserving PN->KC shuffle (sim.shuffle_edges)
+        cfg["mb"]["wiring"] = "shuffle"
     return SIMULATORS[kind](cfg, seed, noise_seed=seed * cfg["rng_streams"]["noise"] + k)
 
 

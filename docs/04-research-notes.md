@@ -49,7 +49,7 @@
 
 Source: Zenodo 10676866 (`proofread_connections_783.feather`) plus flywire_annotations `Supplemental_file1_neuron_annotations.tsv`; see `data/README.md`. These are counts from the data, not literature values.
 
-- Annotated neurons: 139,248. Kenyon cells: 2,597 right / 2,566 left (5,177 in total, including 14 without a side: KCg 1,271 R / 1,219 L, KCab 799 R / 844 L, 527 R / 517 L with no subclass label). This is more than the "~2000 per hemisphere" of Aso 2014.
+- Annotated neurons: 139,248. Kenyon cells: 2,597 right / 2,580 left (5,177 in total; KCg 1,271 R / 1,219 L, KCab 799 R / 844 L, 527 R / 517 L with no subclass label). This is more than the "~2000 per hemisphere" of Aso 2014.
 - Uniglomerular ALPNs 139 R / 138 L; multiglomerular 201 R / 199 L. This is consistent with "~150 uPNs" (Choi 2022) and with the FAFB count of more multiglomerular PNs.
 - MBONs 48 per side, 35 types; DANs 165–166 per side; 1 APL per side (GABA).
 - Right MB, claw = uPN→KC pair with ≥ 5 synapses: 2,329 KCs have ≥ 1 claw; 4.23 ± 1.61 claws per KC (range 1–9). PN fan-out is very uneven, from 0 to 480 KCs per PN (mean 70.8), which visibly departs from uniform random wiring (cf. Zheng 2022).

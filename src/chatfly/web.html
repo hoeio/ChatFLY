@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChatFLY demo</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f5f1; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e2e0d8;
+    --accent: #2f6b4f; --yes: #2f6b4f; --no: #9a3b2e; --unc: #a06a12; --ref: #5b5b66;
+    --chip: #efede6; --you: #e8efe9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151614; --panel: #1e201d; --ink: #ecebe6; --muted: #9c9b93; --line: #31332f;
+      --accent: #7cc4a0; --yes: #7cc4a0; --no: #e58b7b; --unc: #e2b55a; --ref: #a8a8b3;
+      --chip: #2a2c28; --you: #243029;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .meta { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted);
+          margin-bottom: 16px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .examples button { border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+                     border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px;
+                     cursor: pointer; }
+  .examples button:hover { border-color: var(--accent); }
+  #log { display: flex; flex-direction: column; gap: 12px; min-height: 120px; }
+  .msg { padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line);
+         background: var(--panel); }
+  .you { align-self: flex-end; background: var(--you); max-width: 85%; }
+  .fly { max-width: 100%; }
+  .badge { display: inline-block; font: 600 11px ui-monospace, Menlo, monospace;
+           letter-spacing: .06em; padding: 2px 7px; border-radius: 4px; color: var(--panel);
+           margin-right: 8px; vertical-align: 1px; }
+  .b-yes { background: var(--yes); } .b-no { background: var(--no); }
+  .b-unc { background: var(--unc); } .b-ref { background: var(--ref); }
+  .trace { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 10px;
+           font: 12px ui-monospace, Menlo, monospace; color: var(--muted); }
+  .st { padding: 2px 6px; border-radius: 4px; background: var(--chip); color: var(--ink); }
+  .st.low { outline: 1px solid var(--unc); }
+  .st.bad { outline: 1px solid var(--no); }
+  .tok { color: var(--accent); font-weight: 600; }
+  .why { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  form { display: flex; gap: 8px; margin-top: 18px; }
+  input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; font: inherit;
+          border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  form button { padding: 10px 16px; border-radius: 8px; border: 0; font: inherit;
+                background: var(--accent); color: var(--panel); cursor: pointer; }
+  form button:disabled { opacity: .5; cursor: wait; }
+  .legend { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line);
+            color: var(--muted); font-size: 13px; }
+  .legend p { margin: 6px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ChatFLY</h1>
+  <p class="sub">Ask a simulated fly mushroom body whether a sequence of A and B has an even or
+    odd number of A's. It is a computational model built from the FlyWire connectome, not a
+    living fly.</p>
+  <div class="meta" id="meta">loading…</div>
+  <div class="examples" id="examples"></div>
+  <div id="log" aria-live="polite"></div>
+  <form id="f">
+    <input id="q" autocomplete="off" placeholder="Is A B B A even?" aria-label="Your question">
+    <button id="send">Ask</button>
+  </form>
+  <div class="legend">
+    <p><b>How it answers.</b> A fixed parser (no LLM) turns your sentence into tokens. The fly
+      then runs them through its feedback loop, one step per token. Each step's decoded state is
+      fed back as input to the next step. The reply comes only from the fly's final state.</p>
+    <p><span class="badge b-ref">REFUSED</span>the parser could not turn the question into the
+      fly's language, so the fly was never asked.</p>
+    <p><span class="badge b-unc">UNCERTAIN</span>the fly was asked, but some step was below
+      the confidence threshold or undecodable.</p>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let info = null;
+const EXAMPLES = ["Is A B B A even?", "Does ABBA have an odd number of A's?",
+                  "A B A: even or odd?", "Is ABBA not odd?", "Is A B C even?"];
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function add(node) { $("log").append(node); node.scrollIntoView({block: "nearest"}); }
+
+function badge(out) {
+  if (out.parsed && out.parsed.refuse) return ["REFUSED", "b-ref"];
+  const a = out.answer;
+  if (a === "uncertain") return ["UNCERTAIN", "b-unc"];
+  if (a === "no") return ["NO", "b-no"];
+  return [a.toUpperCase(), "b-yes"];
+}
+
+function render(out) {
+  const m = el("div", "msg fly");
+  const [b, cls] = badge(out);
+  m.append(el("span", "badge " + cls, b), document.createTextNode(out.reply));
+  if (out.trace && out.trace.length) {
+    const t = el("div", "trace");
+    t.append(el("span", "st", info.labels[out.start] || out.start));
+    for (const [x, s, c] of out.trace) {
+      t.append(el("span", "tok", "→" + x + "→"));
+      const st = el("span", "st", s === null ? "?" : (info.labels[s] || s));
+      if (s === null) st.classList.add("bad");
+      else if (c < info.threshold) st.classList.add("low");
+      st.title = "step confidence " + c.toFixed(2);
+      t.append(st);
+    }
+    m.append(t);
+  }
+  add(m);
+}
+
+async function ask(text) {
+  add(el("div", "msg you", text));
+  const pending = el("div", "msg fly why", "The fly is running the sequence…");
+  add(pending);
+  $("send").disabled = true;
+  try {
+    const r = await fetch("/ask", {method: "POST", headers: {"Content-Type": "application/json"},
+                                   body: JSON.stringify({text})});
+    const out = await r.json();
+    pending.remove();
+    if (out.error) add(el("div", "msg fly why", "Error: " + out.error));
+    else render(out);
+  } catch (e) {
+    pending.textContent = "Could not reach the demo server.";
+  } finally {
+    $("send").disabled = false;
+    $("q").focus();
+  }
+}
+
+$("f").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("q").value.trim();
+  if (!text || $("send").disabled) return;
+  $("q").value = "";
+  ask(text);
+});
+
+for (const ex of EXAMPLES) {
+  const b = el("button", null, ex);
+  b.type = "button";
+  b.onclick = () => { if (!$("send").disabled) ask(ex); };
+  $("examples").append(b);
+}
+
+fetch("/info").then((r) => r.json()).then((i) => {
+  info = i;
+  $("meta").textContent = `simulator: ${i.sim} · tokens: ${i.inputs.join(", ")} · ` +
+    `confidence threshold: ${i.threshold}`;
+});
+</script>
+</body>
+</html>

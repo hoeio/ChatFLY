@@ -25,6 +25,7 @@ chat:
   negations: ["not", "no", "never", "nor", "n't"]  # refused (ADR 0009); quoted: YAML reads bare no as false
   min_confidence: {rate: 0.0, spiking: 0.05}  # interactive mode only: thresholds chosen on seeds 10-19 (results/20261113-180326_phase5_chat_s0)
   conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]  # candidate thresholds on the lowest step confidence
+  web: {max_chars: 300, max_tokens: 40}  # demo site (chatfly.web) input limits; arbitrary
   eval:
     n_questions: 100       # fly questions per seed (random A/B sequences)
     max_len: 10            # sequence length uniform in 1..max_len

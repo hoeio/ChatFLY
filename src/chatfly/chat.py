@@ -47,12 +47,15 @@ def parse(text: str, inputs: list[str], keywords: list[str], negations: list[str
     return {"tokens": toks, "ask": asked[0] if len(asked) == 1 else None}
 
 
-def ask_fly(sim, pats, task, dur, tokens) -> tuple[str | None, float]:
+def ask_fly(sim, pats, task, dur, tokens, trace=None) -> tuple[str | None, float]:
     """Run the tokens through the closed loop from the start state. Returns (final state,
-    lowest per-step confidence); (None, 0.0) if any step decodes as uncertain."""
+    lowest per-step confidence); (None, 0.0) if any step decodes as uncertain. trace (a list),
+    if given, gets one (input, decoded state or None, confidence) per step."""
     s, low = task["states"][0], 1.0
     for x in tokens:
         d, c = decode(sim, sim.present(present_pair(pats, s, x), dur)["mbon"])
+        if trace is not None:
+            trace.append((x, None if d is None else task["states"][d], c))
         if d is None:
             return None, 0.0
         s, low = task["states"][d], min(low, c)
@@ -187,29 +190,42 @@ def exp_chat(cfg: dict, seed: int) -> dict:
     return out
 
 
-def main(argv=None):
+def turn(line, fly, ch, kind) -> dict:
+    """One chat turn: parse, ask the fly if in scope, reply. fly = fly_for(...)."""
+    sim, pats, task, c = fly
+    pr = parse(line, ch["inputs"], list(ch["questions"]), ch["negations"])
+    ans, conf, trace = None, 0.0, []
+    if "refuse" not in pr:
+        f, conf = ask_fly(sim, pats, task, c["protocol"]["duration_ms"], pr["tokens"], trace)
+        ans = answer(f, conf, pr["ask"], ch["questions"], ch["min_confidence"][kind])
+    return {"parsed": pr, "answer": ans, "confidence": conf, "trace": trace,
+            "start": task["states"][0], "reply": reply(pr, ans, conf, ch)}
+
+
+def load(argv, desc):
+    """Shared CLI for chat and web: (args, cfg, trained fly)."""
     from pathlib import Path
 
     import yaml
 
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(description=desc)
     p.add_argument("config", type=Path)
     p.add_argument("--sim", default="rate")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--port", type=int, default=8000)  # web only
     a = p.parse_args(argv)
     cfg = yaml.safe_load(a.config.read_text())
-    ch = cfg["chat"]
     print("Training the fly...")
-    sim, pats, task, c = fly_for(a.sim, cfg, a.seed)
+    return a, cfg, fly_for(a.sim, cfg, a.seed)
+
+
+def main(argv=None):
+    a, cfg, fly = load(argv, "Chat with a trained fly in the terminal.")
+    ch = cfg["chat"]
     print(f"Ask whether a sequence of {', '.join(ch['inputs'])} is "
           f"{' or '.join(ch['questions'])}. Empty line quits.")
     while line := input("> ").strip():
-        pr = parse(line, ch["inputs"], list(ch["questions"]), ch["negations"])
-        ans, conf = None, 0.0
-        if "refuse" not in pr:
-            f, conf = ask_fly(sim, pats, task, c["protocol"]["duration_ms"], pr["tokens"])
-            ans = answer(f, conf, pr["ask"], ch["questions"], ch["min_confidence"][a.sim])
-        print(reply(pr, ans, conf, ch))
+        print(turn(line, fly, ch, a.sim)["reply"])
 
 
 if __name__ == "__main__":

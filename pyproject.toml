@@ -21,6 +21,9 @@ dev = ["pytest", "ruff"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+chatfly = ["web.html"]  # demo page served by chatfly.web
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

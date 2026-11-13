@@ -43,3 +43,43 @@ def test_config_translation():
     assert all(isinstance(n, str) for n in cfg["chat"]["negations"])
     tr = translation_eval(cfg, np.random.default_rng(0))
     assert tr["dev"]["acc"] == 1.0 and tr["out_of_scope"]["refused"] == 1.0
+
+
+def test_web_demo():
+    """Demo server on a real rate fly: page, an answer with a trace, a refusal, a bad body."""
+    import json
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import HTTPServer
+    from pathlib import Path
+
+    import pytest
+    import yaml
+
+    from chatfly.chat import fly_for
+    from chatfly.web import make_handler
+
+    root = Path(__file__).parents[1]
+    cfg = yaml.safe_load((root / "configs" / "phase5_chat.yaml").read_text())
+    if not (root / cfg["connectome"]["dir"]).exists():
+        pytest.skip("FlyWire data not present (data/README.md)")
+    srv = HTTPServer(("127.0.0.1", 0), make_handler(fly_for("rate", cfg, 0), cfg["chat"], "rate"))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_port}"
+
+    def ask(body):
+        req = urllib.request.Request(url + "/ask", data=body, method="POST")
+        try:
+            return json.loads(urllib.request.urlopen(req).read())
+        except urllib.error.HTTPError as e:
+            return json.loads(e.read())
+
+    try:
+        assert b"ChatFLY" in urllib.request.urlopen(url + "/").read()
+        out = ask(json.dumps({"text": "Is A B B A even?"}).encode())
+        assert out["answer"] in ("yes", "no", "uncertain") and len(out["trace"]) == 4
+        assert ask(json.dumps({"text": "Is ABBA not odd?"}).encode())["parsed"]["refuse"] == "negation"
+        assert "error" in ask(b"junk")
+    finally:
+        srv.shutdown()

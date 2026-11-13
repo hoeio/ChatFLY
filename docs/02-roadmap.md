@@ -57,6 +57,14 @@ Each phase must pass its acceptance criteria before the next one begins. If it d
 - **Acceptance criteria (ADR 0010):** answered accuracy ≥ 0.99 on every test seed (rate and spiking) in random grammatical conversations, threshold chosen on held-out seeds; the teacher-shuffle control behind the same interface at chance; the no-KC control reported
 - **Zumi 2 (ADR 0011):** the fly learns properties of any word during the conversation. Criteria: on every test seed, answered accuracy ≥ 0.99 and ≤ 5% of never-taught questions answered; capacity = the most things taught that pass; thresholds chosen on held-out seeds; no-KC and teacher-shuffle controls
 
-## Note on estimated cost
+## Phase 7 — a fly that speaks Zumi (added at the user's request, 2026-11-14)
+
+- Goal (ADR 0012): the fly generates its Zumi replies word by word: grammatical, fitting the question, consistent with what it was told; no template replies from the interface
+- **7a:** dialogue corpus from the grammar, generation metrics, n-gram and RNN baselines. Acceptance: the corpus agrees with the parser, the oracle scores 1.0 on every metric, baselines reported on test seeds
+- **7b:** speaking fly v0 (MBON groups = reply words, previous word fed back); criteria set from 7a
+- **7c (branch point):** the fly tracks the grammar state itself (several flies; Phase 4 capacity)
+- **7d:** replies use the memory fly and the ring across turns
+
+
 
 The mushroom body is a circuit designed to learn through a small number of trials, so transition-table learning itself (four transitions) is expected to be cheap. The time-consuming parts will be **hyperparameter tuning, achieving reliability, and long-sequence evaluation**. Always estimate simulation time before running.

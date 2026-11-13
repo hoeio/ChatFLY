@@ -1,6 +1,6 @@
 # 0009. Phase 5 chat layer: fixed-schema parser, closed-loop query, Gate E criteria
 
-- Status: Proposed (Gate E criteria below need user confirmation)
+- Status: Accepted (Gate E criteria confirmed by the user, 2026-11-13)
 - Date: 2026-11-13
 
 ## Context
@@ -25,8 +25,11 @@ has no `anthropic` package and no API key.
 
 1. **Parser (option 2, for now).** `chat.parse`: exactly one run of all-caps tokens (`A B A`,
    `ABBA`) plus exactly one question keyword (`even` / `odd`; both = "which?"). Anything
-   else is refused with a reason (no sequence, several sequences, unknown tokens, no question). It
-   never guesses. An LLM can replace `parse` later behind the same return format; that would need
+   else is refused with a reason (no sequence, several sequences, unknown tokens, negation, no
+   question). It never guesses. Negation (`chat.negations`: not, no, never, nor, n't) is refused
+   because the parser has no logic to flip a question. This was added after held-out set v1 showed
+   silent inversions ("Is ABBA not odd?"). v1 is therefore seen, and the fix is tested on a new
+   held-out set v2, written before the parser was run on it. An LLM can replace `parse` later behind the same return format; that would need
    the same held-out evaluation.
 2. **Fly query.** The parsed tokens run through the closed loop from the start state, as in
    Phase 2/3 (decoded state fed back as the next state token, each step from rest). The answer
@@ -38,7 +41,7 @@ has no `anthropic` package and no API key.
 4. **Threshold choice.** Held-out seeds 10–19 are used to pick the smallest threshold in
    `chat.conf_grid` at which every seed's answered accuracy reaches 0.99. Test seeds 0–9 are
    reported at that threshold.
-5. **Gate E criteria (proposed):**
+5. **Gate E criteria (confirmed by the user):**
    - (a) Translation, measured without the fly. Dev templates are parsed 100% correctly. On
      held-out paraphrase templates (written before the first run, not used to tune the parser),
      accuracy is reported, and the **silent-wrong rate** (wrong parse, not refused) must be 0.

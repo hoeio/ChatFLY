@@ -1,17 +1,20 @@
 from chatfly.chat import answer, parse, reply
 
-IN, KW = ["A", "B"], ["even", "odd"]
+IN, KW, NEG = ["A", "B"], ["even", "odd"], ["not", "no", "never", "nor", "n't"]
 Q = {"even": ["s0"], "odd": ["s1"]}
 
 
 def test_parse():
-    assert parse("Is A B A even?", IN, KW) == {"tokens": ["A", "B", "A"], "ask": "even"}
-    assert parse("Is the number of A's in ABBA odd?", IN, KW) == {"tokens": list("ABBA"), "ask": "odd"}
-    assert parse("A, B: even or odd?", IN, KW) == {"tokens": ["A", "B"], "ask": None}
-    assert parse("Is A B C even?", IN, KW)["refuse"] == "unknown_tokens"
-    assert parse("Is A B even, and is B A odd?", IN, KW)["refuse"] == "ambiguous_sequence"
-    assert parse("Is ABBA a good band?", IN, KW)["refuse"] == "no_question"
-    assert parse("Is the empty sequence even?", IN, KW)["refuse"] == "no_sequence"
+    assert parse("Is A B A even?", IN, KW, NEG) == {"tokens": ["A", "B", "A"], "ask": "even"}
+    assert parse("Is the number of A's in ABBA odd?", IN, KW, NEG) == {"tokens": list("ABBA"), "ask": "odd"}
+    assert parse("A, B: even or odd?", IN, KW, NEG) == {"tokens": ["A", "B"], "ask": None}
+    assert parse("Is A B C even?", IN, KW, NEG)["refuse"] == "unknown_tokens"
+    assert parse("Is A B even, and is B A odd?", IN, KW, NEG)["refuse"] == "ambiguous_sequence"
+    assert parse("Is ABBA a good band?", IN, KW, NEG)["refuse"] == "no_question"
+    assert parse("Is the empty sequence even?", IN, KW, NEG)["refuse"] == "no_sequence"
+    for t in ("Is ABBA not odd?", "Isn't ABBA even?", "Is A B even or not?"):
+        assert parse(t, IN, KW, NEG)["refuse"] == "negation"
+    assert "tokens" in parse("Is ABBA even? Nothing else.", IN, KW, NEG)  # "no" only as a word
 
 
 def test_answer_and_reply():

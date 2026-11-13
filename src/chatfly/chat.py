@@ -25,9 +25,14 @@ log = logging.getLogger("chatfly")
 RUN = re.compile(r"(?<![\w'])[A-Z]+(?:[ ,]+[A-Z]+)*(?![\w'])")
 
 
-def parse(text: str, inputs: list[str], keywords: list[str]) -> dict:
+def parse(text: str, inputs: list[str], keywords: list[str], negations: list[str]) -> dict:
     """{"tokens": [...], "ask": keyword | None (= "which?")} or {"refuse": reason}.
-    Refuses rather than guesses: zero or several sequences, unknown tokens, no keyword."""
+    Refuses rather than guesses: zero or several sequences, unknown tokens, negation (the parser
+    has no logic to flip a question; ADR 0009), no keyword."""
+    low = text.lower()
+    # whole words ("not"), or anywhere for non-words ("n't" in "isn't")
+    if any(re.search(rf"\b{n}\b" if n.isalpha() else re.escape(n), low) for n in negations):
+        return {"refuse": "negation"}
     runs = [r for r in RUN.findall(text) if r != "I"]
     if len(runs) != 1:
         return {"refuse": "no_sequence" if not runs else "ambiguous_sequence"}
@@ -35,7 +40,7 @@ def parse(text: str, inputs: list[str], keywords: list[str]) -> dict:
     unknown = sorted(set(toks) - set(inputs))
     if unknown:
         return {"refuse": "unknown_tokens", "unknown": unknown}
-    words = set(re.findall(r"[a-z]+", text.lower()))
+    words = set(re.findall(r"[a-z]+", low))
     asked = [k for k in keywords if k in words]
     if not asked:
         return {"refuse": "no_question"}
@@ -67,6 +72,7 @@ def reply(parsed, ans, conf, ch) -> str:
     if "refuse" in parsed:
         why = {"no_sequence": "I found no sequence of the fly's tokens",
                "ambiguous_sequence": "I found more than one sequence and will not guess which",
+               "negation": "I can't handle negated questions; please ask it without 'not'",
                "unknown_tokens": f"the fly only knows {', '.join(ch['inputs'])}, not "
                                  f"{', '.join(parsed.get('unknown', []))}",
                "no_question": f"I can only ask whether a sequence is {' or '.join(ch['questions'])}"}
@@ -103,17 +109,19 @@ def translation_eval(cfg, rng) -> dict:
     A wrong parse that is not a refusal ("silent") is the failure that matters."""
     ch, ev = cfg["chat"], cfg["chat"]["eval"]
     out = {}
-    for name in ("templates_dev", "templates_heldout"):
+    for name, temps in ch["templates"].items():
         n = ok = silent = 0
-        for t in ch[name]:
+        for t in temps:
             for _ in range(ev["n_parse_per_template"]):
                 toks = list(rng.choice(ch["inputs"], rng.integers(1, ev["max_len"] + 1)))
                 seq = " ".join(toks) if rng.random() < 0.5 else "".join(toks)
-                p = parse(t["text"].format(seq=seq), ch["inputs"], list(ch["questions"]))
+                p = parse(t["text"].format(seq=seq), ch["inputs"], list(ch["questions"]),
+                          ch["negations"])
                 good = p.get("tokens") == toks and p.get("ask") == t["ask"]
                 n, ok, silent = n + 1, ok + good, silent + (not good and "refuse" not in p)
         out[name] = {"n": n, "acc": ok / n, "silent_wrong": silent / n}
-    oos = [parse(t, ch["inputs"], list(ch["questions"])) for t in ch["out_of_scope"]]
+    oos = [parse(t, ch["inputs"], list(ch["questions"]), ch["negations"])
+           for t in ch["out_of_scope"]]
     out["out_of_scope"] = {"n": len(oos), "refused": float(np.mean(["refuse" in p for p in oos])),
                            "answered": [t for t, p in zip(ch["out_of_scope"], oos)
                                         if "refuse" not in p]}
@@ -196,7 +204,7 @@ def main(argv=None):
     print(f"Ask whether a sequence of {', '.join(ch['inputs'])} is "
           f"{' or '.join(ch['questions'])}. Empty line quits.")
     while line := input("> ").strip():
-        pr = parse(line, ch["inputs"], list(ch["questions"]))
+        pr = parse(line, ch["inputs"], list(ch["questions"]), ch["negations"])
         ans, conf = None, 0.0
         if "refuse" not in pr:
             f, conf = ask_fly(sim, pats, task, c["protocol"]["duration_ms"], pr["tokens"])

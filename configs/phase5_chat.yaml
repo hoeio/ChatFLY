@@ -22,27 +22,41 @@ chat:
   task: {kind: parity}     # fsm.make_task: states s0 (even number of A), s1 (odd)
   inputs: [A, B]           # the fly's input tokens, as the parser recognizes them
   questions: {even: [s0], odd: [s1]}  # question keyword -> final states that mean "yes"
+  negations: [not, no, never, nor, "n't"]  # refused: the parser cannot flip a question (ADR 0009)
   min_confidence: 0.0      # interactive mode only; set from the eval's chosen threshold
   conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]  # candidate thresholds on the lowest step confidence
   eval:
     n_questions: 100       # fly questions per seed (random A/B sequences)
     max_len: 10            # sequence length uniform in 1..max_len
     n_parse_per_template: 20
-  templates_dev:           # used while writing the parser
-    - {text: "Is {seq} even?", ask: even}
-    - {text: "Does {seq} have an even number of A's?", ask: even}
-    - {text: "Is the number of A's in {seq} odd?", ask: odd}
-    - {text: "{seq}: even or odd?", ask: null}
-    - {text: "Tell me if {seq} is odd.", ask: odd}
-  templates_heldout:       # written before the first eval run and never used to tune the parser
-    - {text: "Would you call the sequence {seq} even?", ask: even}
-    - {text: "Quick one, is \"{seq}\" odd", ask: odd}
-    - {text: "even or odd: {seq}", ask: null}
-    - {text: "Check {seq} for me. Odd?", ask: odd}
-    - {text: "A question: is {seq} even?", ask: even}
-    - {text: "Is the count of A in {seq} even?", ask: even}
-    - {text: "Is {seq} an even sequence or not?", ask: even}
-    - {text: "Is {seq} not odd?", ask: even}   # gold = meaning (not odd = even)
+  templates:               # translation eval sets; each {seq} is a random A/B sequence
+    dev:                   # used while writing the parser
+      - {text: "Is {seq} even?", ask: even}
+      - {text: "Does {seq} have an even number of A's?", ask: even}
+      - {text: "Is the number of A's in {seq} odd?", ask: odd}
+      - {text: "{seq}: even or odd?", ask: null}
+      - {text: "Tell me if {seq} is odd.", ask: odd}
+    heldout_v1:            # SEEN: written before run 20261113-170848; its negation failure led to the
+                           # negation refusal, so it is no longer a clean held-out set (kept for the record)
+      - {text: "Would you call the sequence {seq} even?", ask: even}
+      - {text: "Quick one, is \"{seq}\" odd", ask: odd}
+      - {text: "even or odd: {seq}", ask: null}
+      - {text: "Check {seq} for me. Odd?", ask: odd}
+      - {text: "A question: is {seq} even?", ask: even}
+      - {text: "Is the count of A in {seq} even?", ask: even}
+      - {text: "Is {seq} an even sequence or not?", ask: even}
+      - {text: "Is {seq} not odd?", ask: even}   # gold = meaning (not odd = even)
+    heldout_v2:            # written after the negation fix, before the parser was ever run on it
+      - {text: "Hey, is {seq} even?", ask: even}
+      - {text: "Is {seq} odd or even?", ask: null}
+      - {text: "Sequence {seq}. Is that odd?", ask: odd}
+      - {text: "Please tell me whether {seq} is even.", ask: even}
+      - {text: "Isn't {seq} even?", ask: even}
+      - {text: "{seq} is odd, right?", ask: odd}
+      - {text: "Is it true that {seq} is not even?", ask: odd}
+      - {text: "Do you think {seq} has an odd number of A's?", ask: odd}
+      - {text: "Is the parity of {seq} even?", ask: even}
+      - {text: "What about {seq}, even?", ask: even}
   out_of_scope:
     - "What is your favourite colour?"
     - "Is A B C even?"

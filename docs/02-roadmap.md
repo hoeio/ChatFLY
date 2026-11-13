@@ -51,6 +51,11 @@ Each phase must pass its acceptance criteria before the next one begins. If it d
 - Evaluate conversational scenarios: measure translation accuracy and fly response accuracy separately
 - **Acceptance criteria (Gate E):** Question answering within the learned language works, and uncertain / out-of-scope input is handled honestly.
 
+## Phase 6 — Zumi, a conversational language (added at the user's request, 2026-11-13)
+
+- A tiny regular language (`docs/zumi-guide.md`) whose meaning is a world the fly tracks across conversation turns in its loop
+- **Acceptance criteria (ADR 0010):** answered accuracy ≥ 0.99 on every test seed (rate and spiking) in random grammatical conversations, threshold chosen on held-out seeds; the teacher-shuffle control behind the same interface at chance; the no-KC control reported
+
 ## Note on estimated cost
 
 The mushroom body is a circuit designed to learn through a small number of trials, so transition-table learning itself (four transitions) is expected to be cheap. The time-consuming parts will be **hyperparameter tuning, achieving reliability, and long-sequence evaluation**. Always estimate simulation time before running.

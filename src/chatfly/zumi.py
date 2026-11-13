@@ -167,9 +167,12 @@ def main(argv=None):
     lx = cfg["lang"]
     conv = Conversation(fly, lx, lx["min_confidence"][a.sim])
     print("Speak Zumi (guide: docs/zumi-guide.md). Example: 'zu ki zu nu?'. Empty line quits.")
-    while line := input("> ").strip():
-        o = conv.turn(line)
-        print(f"fly: {o['reply']}    ({o['gloss']})")
+    try:
+        while line := input("> ").strip():
+            o = conv.turn(line)
+            print(f"fly: {o['reply']}    ({o['gloss']})")
+    except EOFError:  # end of piped input
+        pass
 
 
 if __name__ == "__main__":

@@ -58,6 +58,10 @@ Option 2, as the language **Zumi** (`docs/zumi-guide.md`):
    - threshold chosen on seeds 10–19, reported on seeds 0–9;
    - target: answered accuracy ≥ 0.99 on every test seed, as Gate E (c);
    - teacher shuffle behind the same interface should answer at chance (1/3).
+6. **Plasticity step:** `eta_dep` 0.3 instead of 0.5, for Zumi only. v1 (0.5) failed on test
+   seeds 0–9 (rate 9/10, spiking 7/10, with silent wrong answers). 0.3 was chosen on dev
+   seeds, then passed on fresh test seeds 60–69: every answer correct in both models
+   (`docs/notes/phase6-zumi.md`).
 
 ## Consequences
 

@@ -103,7 +103,11 @@ Values are mean step accuracy, with seeds ≥ 0.99 in brackets. The spiking `rou
 - **One fly with the same router does almost exactly as well as separate flies.** The router selects a separate KC→MBON weight set per input token. With a single shared KC layer that is enough: it reaches 9–10/10 seeds wherever separate flies do, and the remaining difference is at most one seed.
 - **So the capability comes from input-indexed readout plasticity (selected by the fixed router) on top of a KC layer, not from having several mushroom bodies.** The no-KC control still fails, so a KC expansion is needed. One is enough.
 
-## Gate D verdict (revised; pending user decision)
+## Gate D verdict (revised): **NO** (user decision, 2026-11-13)
+
+Recorded answer: there is no evidence that multiple flies do anything a single fly with the same router cannot. The mechanism is input-gated readout, which is designer-set glue. Phase 5 uses single-fly modules.
+
+Details:
 
 - **By ADR 0008 decision 5 as written: YES.** Routed flies meet the criterion where a single fly, the size-matched fly and the no-KC router do not.
 - **With the review's control: the "multiple flies" part is not what does the work.** A single fly given the same router glue matches separate flies. The tasks a plain single fly cannot learn (random tables with conflicting row/column majorities) become learnable through an input-gated readout, whether it is implemented as several flies or as per-input weights in one fly.

@@ -22,7 +22,7 @@ chat:
   task: {kind: parity}     # fsm.make_task: states s0 (even number of A), s1 (odd)
   inputs: [A, B]           # the fly's input tokens, as the parser recognizes them
   questions: {even: [s0], odd: [s1]}  # question keyword -> final states that mean "yes"
-  negations: ["not", "no", "never", "nor", "n't"]  # quoted: YAML reads a bare no as false  # refused: the parser cannot flip a question (ADR 0009)
+  negations: ["not", "no", "never", "nor", "n't"]  # refused (ADR 0009); quoted: YAML reads bare no as false
   min_confidence: 0.0      # interactive mode only; set from the eval's chosen threshold
   conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]  # candidate thresholds on the lowest step confidence
   eval:

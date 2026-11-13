@@ -1,5 +1,30 @@
 # Phase 5 / Gate E: chat layer over the parity fly
 
+## Update (2026-11-13): negation refusal, held-out set v2
+
+The user confirmed the ADR 0009 criteria and the parser fix. Negated questions are now refused (`chat.negations`). Re-run: `results/20261113-180326_phase5_chat_s0` (commit 607f7f3). An earlier attempt, `results/20261113-180242_phase5_chat_s0`, failed because YAML read the bare `no` as false; the words are now quoted, and a test covers it.
+
+| set | n | correct | silent wrong |
+|---|---|---|---|
+| dev | 100 | 1.000 | 0.000 |
+| held-out v1 (seen; kept for the record) | 160 | 0.500 | 0.000 |
+| **held-out v2** (written after the fix, before the parser was run on it) | 200 | **0.800** | **0.000** |
+| out-of-scope | 8 | refused 8/8 | – |
+
+- v1 drops from 0.625 to 0.500 because its two negated templates are now refused instead of inverted.
+- The fly results are identical to the first run (checked: equal `fly` metrics).
+
+| criterion | result |
+|---|---|
+| (a) dev parse 100%, held-out silent-wrong 0 | **pass** (v2) |
+| (b) out-of-scope refused 100% | pass |
+| (c) answered acc ≥ 0.99 on every test seed | rate pass; **spiking 8/10: open** |
+| (d) teacher-shuffle ≤ 0.6 | pass |
+
+Gate E is not passed until (c) is decided. The options are in "Gate E against the proposed criteria" below.
+
+## First run
+
 Run: `results/20261113-170848_phase5_chat_s0` (config `configs/phase5_chat.yaml`, commit 034f870, 25 min with 10 workers). Design and the proposed criteria are in ADR 0009. The fly is the Gate C parity fly (FlyWire v783 right MB, DAN-cluster readout). Each seed answers 100 questions on random A/B sequences of length 1–10.
 
 ## Translation (parser only, no fly)

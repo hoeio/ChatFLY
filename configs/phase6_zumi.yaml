@@ -8,7 +8,7 @@ select_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # held out: the confiden
 simulators: [rate, spiking]
 workers: 10               # parallel seed processes for the spiking model
 warmup_ms: 10.0            # compile-only warm-up run before workers start
-rng_streams: {tokens: 10000, task: 20000, noise: 1000, table: 30000, fly: 100, chat: 40000}
+rng_streams: {tokens: 10000, task: 20000, noise: 1000, table: 30000, fly: 100, chat: 40000, words: 50000}
 
 chat:
   # The meaning of Zumi: a ring nest -> flower -> pond -> nest. zu = fly on (clockwise),
@@ -29,6 +29,18 @@ lang:                      # the Zumi lexicon (docs/zumi-guide.md); words are th
   yesno: ba                # "<place> ba" = "am I at <place>?"
   suppose: si              # "what if": run the moves without moving
   restart: bzz             # start over at the nest (interface rule, not learned)
+  is: ka                   # Zumi 2 (ADR 0011): "<thing> ka <prop>+" teaches the fly
+  what: ke                 # "<thing> ke?" = what is it?
+  props:                   # property pairs; each pair is one output pair of the memory fly
+    - {bon: good, mal: bad}
+    - {gu: big, pi: small}
+    - {ho: hot, ku: cold}
+    - {ra: fast, lo: slow}
+  memory:
+    n_ask: 1               # sniffs per question, MBON rates summed (4 tried: no better than w_kc_mbon_mv 2.0)
+    n_teach: 5             # dopamine pairings per taught property; 1, 3, 5 tried on selection seeds 10-19 (ADR 0011)
+    w_kc_mbon_mv: 2.0      # memory fly only (spiking): a single noun drives few KCs (~6%), so 1.0 mV gave ~5 Hz MBONs
+    min_confidence: {rate: 0.0, spiking: 0.0}  # interactive / web; set from phase6_zumi2_memory.yaml's run
   replies: {"yes": ya, "no": na, unsure: hm, ok: o, huh: e}  # quoted: YAML reads bare yes/no as booleans
   min_confidence: {rate: 0.0, spiking: 0.0}  # interactive / web: thresholds chosen on seeds 10-19 (results/20261113-204727_phase6_zumi_s0)
   conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]
@@ -89,6 +101,9 @@ protocol:
   duration_ms: 500.0       # arbitrary presentation window (one loop step)
   n_test: 20               # test presentations per transition (no plasticity)
   n_train: 20              # training epochs over the 4 transitions (as validated in ADR 0005)
+
+controls:
+  pn_active_hz: 20.0       # arbitrary: PN counted active in the no-KC memory control (spont 2, on 200)
 
 gate:
   answered_acc_target: 0.99  # per seed, as Gate E

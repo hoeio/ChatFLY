@@ -1,0 +1,21 @@
+# Zumi 2 (ADR 0011): how many taught facts the memory fly keeps, and whether it says "hm" for
+# what it was never told. The language, the fly and its parameters come from `base`.
+experiment: zumi_memory
+base: configs/phase6_zumi.yaml
+seed: 0
+seeds: [60, 61, 62, 63, 64, 65, 66, 67, 68, 69]          # test seeds (as Zumi v2)
+select_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]   # threshold chosen here
+simulators: [rate, spiking]
+workers: 10
+
+memory_eval:
+  n_nouns: {rate: [10, 20, 40, 80, 160, 320], spiking: [20, 40, 80]}  # spiking: smaller to bound run time (160 nouns: 0.97 on selection seeds)
+  n_select: 40               # nouns per selection run (about a long conversation); arbitrary
+  props_per_noun: 2          # pairs taught per noun, of 4
+  p_change: 0.2              # fraction of facts re-taught with the opposite value at the end (changed mind)
+  n_unknown: 10              # never-heard nouns asked on every pair
+  word_len: 6                # random-letter nouns
+  controls: [null, no_kc, shuffled_teacher]
+  conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]
+  answered_acc_target: 0.99  # per seed, as Gate E / Zumi v2
+  max_untaught_answered: 0.05  # arbitrary: at most 5% of never-taught questions get a yes/no answer

@@ -84,7 +84,11 @@
     <button id="send">Ask</button>
   </form>
   <div class="legend" id="legend-zumi" hidden>
-    <p><b>Zumi in one line:</b> <code>[bzz] [si] moves… [nu | place ba]</code></p>
+    <p><b>Zumi in one line:</b> <code>[bzz] [si] moves… [nu | place ba]</code>, or about any
+      thing: <code>thing ka props…</code> (teach) · <code>thing prop ba</code> · <code>thing ke</code> (what is it?)</p>
+    <p>properties <code>bon</code>/<code>mal</code> good/bad · <code>gu</code>/<code>pi</code> big/small ·
+      <code>ho</code>/<code>ku</code> hot/cold · <code>ra</code>/<code>lo</code> fast/slow. The fly learns
+      what you teach during the chat, through its own dopamine-gated plasticity.</p>
     <p>places <code>ne</code> nest · <code>fi</code> flower · <code>po</code> pond (a loop:
       ne → fi → po → ne) · moves <code>zu</code> fly on · <code>ki</code> fly back ·
       <code>ta</code> stay · ask <code>nu</code> where? · <code>po ba</code> at the pond? ·
@@ -112,7 +116,7 @@ let info = null;
 const EXAMPLES = {
   parity: ["Is A B B A even?", "Does ABBA have an odd number of A's?",
            "A B A: even or odd?", "Is ABBA not odd?", "Is A B C even?"],
-  zumi: ["nu?", "zu.", "zu nu?", "si ki nu?", "po ba?", "zu zu ki fi ba?", "bzz nu?", "nu zu?"],
+  zumi: ["nu?", "zu nu?", "si ki nu?", "fire ka mal ho.", "fire ke?", "fire ku ba?", "ice ke?", "nu zu?"],
 };
 
 function el(tag, cls, text) {
@@ -152,6 +156,15 @@ function render(out) {
       if (s === null) st.classList.add("bad");
       else if (c < info.threshold) st.classList.add("low");
       st.title = "step confidence " + c.toFixed(2);
+      t.append(st);
+    }
+    m.append(t);
+  }
+  if (out.memory && out.memory.length) {
+    const t = el("div", "trace");
+    for (const [pair, word, c] of out.memory) {
+      const st = el("span", "st" + (word === null ? " low" : ""), pair.join("/") + ": " + (word || "?"));
+      st.title = "confidence " + c.toFixed(2);
       t.append(st);
     }
     m.append(t);
@@ -205,9 +218,9 @@ fetch("/info").then((r) => r.json()).then((i) => {
   if (i.mode === "zumi") {
     document.title = "Zumi demo";
     document.querySelector("h1").textContent = "Zumi";
-    $("sub").textContent = "Talk to a simulated fly mushroom body in Zumi, a ten-word language. " +
-      "The fly lives on a loop of three places and remembers where it is between turns. It is " +
-      "a computational model (synthetic wiring), not a living fly.";
+    $("sub").textContent = "Talk to a simulated fly mushroom body in Zumi. Tell it about anything " +
+      "and it learns as you talk; it also lives on a loop of three places and remembers where it " +
+      "is. It is a computational model (synthetic wiring), not a living fly.";
     $("q").placeholder = "zu nu?";
     $("q").setAttribute("aria-label", "Your Zumi sentence");
     $("send").textContent = "Say";
@@ -215,7 +228,7 @@ fetch("/info").then((r) => r.json()).then((i) => {
     $("legend-parity").hidden = true;
     $("ring").style.display = "flex";
     ring(i.place);
-    $("meta").textContent = `simulator: ${i.sim} · confidence threshold: ${i.threshold}`;
+    $("meta").textContent = `simulator: ${i.sim} · thresholds: ring ${i.threshold}, memory ${i.mem_threshold}`;
   } else {
     $("meta").textContent = `simulator: ${i.sim} · tokens: ${i.inputs.join(", ")} · ` +
       `confidence threshold: ${i.threshold}`;

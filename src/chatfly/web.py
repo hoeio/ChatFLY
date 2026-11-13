@@ -27,12 +27,13 @@ def chat_app(fly, ch, kind):
     return info, ch["web"], n_tokens, lambda t: turn(t, fly, ch, kind)
 
 
-def zumi_app(fly, lx, kind):
-    """One Zumi conversation -> (info, limits, token count, ask). The reply carries the fly's
-    place after the turn (None = lost) so the page can show its memory."""
-    conv = zumi.Conversation(fly, lx, lx["min_confidence"][kind])
-    info = {"mode": "zumi", "sim": kind, "threshold": conv.min_conf, "labels": lx["places"],
-            "places": lx["places"], "moves": lx["moves"], "place": conv.place}
+def zumi_app(fly, cfg, a):
+    """One Zumi conversation (ring + fresh memory) -> (info, limits, token count, ask). The
+    reply carries the fly's place after the turn (None = lost) so the page can show it."""
+    lx, conv = cfg["lang"], zumi.conversation(a, cfg, fly)
+    info = {"mode": "zumi", "sim": a.sim, "threshold": conv.min_conf, "labels": lx["places"],
+            "places": lx["places"], "moves": lx["moves"], "place": conv.place,
+            "props": lx["props"], "mem_threshold": conv.mem_conf}
 
     def ask(text):
         return {**conv.turn(text), "place": conv.place}
@@ -87,7 +88,7 @@ def make_handler(info, lim, n_tokens, ask):
 
 def main(argv=None):
     a, cfg, fly = load(argv, "Serve the chat demo page on localhost.")
-    app = zumi_app(fly, cfg["lang"], a.sim) if "lang" in cfg else chat_app(fly, cfg["chat"], a.sim)
+    app = zumi_app(fly, cfg, a) if "lang" in cfg else chat_app(fly, cfg["chat"], a.sim)
     srv = HTTPServer(("127.0.0.1", a.port), make_handler(*app))
     print(f"Demo at http://127.0.0.1:{a.port}  (Ctrl+C stops)")
     try:

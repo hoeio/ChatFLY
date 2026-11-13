@@ -75,11 +75,13 @@ def test_web_demo_zumi():
     import urllib.error
     import urllib.request
     from http.server import HTTPServer
+    from types import SimpleNamespace
 
     from chatfly.chat import fly_for
     from chatfly.web import make_handler, zumi_app
 
-    srv = HTTPServer(("127.0.0.1", 0), make_handler(*zumi_app(fly_for("rate", CFG, 0), LX, "rate")))
+    a = SimpleNamespace(sim="rate", seed=0)
+    srv = HTTPServer(("127.0.0.1", 0), make_handler(*zumi_app(fly_for("rate", CFG, 0), CFG, a)))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{srv.server_port}"
 
@@ -97,6 +99,67 @@ def test_web_demo_zumi():
         assert out["reply"] in ("fi", "hm") and out["start"] == "ne" and len(out["trace"]) == 1
         assert ask("nu?")["place"] == out["place"]          # remembered across requests
         assert ask("nu zu?")["reply"] == "e"
+        assert ask("fire ka ho.")["reply"] == "o"
+        out = ask("fire ke?")
+        assert out["reply"] in ("ho", "hm") and len(out["memory"]) == len(LX["props"])
         assert "error" in ask("zu " * 41 + "nu?")           # max_tokens
     finally:
         srv.shutdown()
+
+
+def test_parse_memory():
+    assert parse("Fire ka mal ho.", LX) == {"noun": "fire", "kind": "teach", "props": ["mal", "ho"]}
+    assert parse("fire ke?", LX) == {"noun": "fire", "kind": "what", "props": []}
+    assert parse("fire ku ba?", LX) == {"noun": "fire", "kind": "ask", "props": ["ku"]}
+    assert parse("fire ka", LX)["refuse"] == "ka_needs_property"
+    assert parse("fire ka bon mal", LX)["refuse"] == "contradiction"
+    assert parse("fire ka nice", LX) == {"refuse": "unknown_word", "word": "nice"}
+    assert parse("zu ka bon", LX) == {"refuse": "not_a_noun", "word": "zu"}
+    assert parse("r2d2 ke?", LX)["refuse"] == "not_a_noun"
+    assert parse("fi ba?", LX)["ask"] == "fi"            # ring sentences are unchanged
+    assert parse("fire bon", LX)["refuse"] == "unknown_word"
+
+
+class FakeMemory:
+    """Remembers what it was taught exactly; tests the conversation logic only."""
+
+    def __init__(self):
+        from chatfly.zumi import props
+
+        self.prop, self.facts = props(LX), {}
+
+    def teach(self, noun, prop):
+        self.facts[(noun, self.prop[prop][0])] = self.prop[prop][1]
+
+    def ask(self, noun, pair):
+        side = self.facts.get((noun, pair))
+        return (None, 0.0) if side is None else (side, 0.5)
+
+
+def test_conversation_memory():
+    from chatfly.fsm import make_task
+
+    task = make_task(CFG["chat"]["task"], None)
+    conv = Conversation((FakeSim(task, 0.5), None, task, CFG), LX, 0.1, FakeMemory(), 0.1)
+    assert conv.turn("ice ke?")["reply"] == "hm"
+    assert conv.turn("fire ka mal ho.")["reply"] == "o"
+    assert conv.turn("fire ke?")["reply"] == "mal ho"
+    assert conv.turn("fire ku ba?")["reply"] == "na"
+    assert conv.turn("fire ho ba?")["reply"] == "ya"
+    assert conv.turn("fire gu ba?")["reply"] == "hm"     # never told big/small
+    assert conv.turn("fire ka bon.")["reply"] == "o"     # changed its mind
+    assert conv.turn("fire ke?")["reply"] == "bon ho"
+    assert conv.turn("fire ka bon mal.")["reply"] == "e"
+    no_mem = Conversation((FakeSim(task, 0.5), None, task, CFG), LX, 0.1)
+    assert no_mem.turn("fire ke?")["reply"] == "e"
+
+
+def test_memory_learns():
+    """A real rate memory fly: taught facts come back, a never-heard noun gets no answer."""
+    from chatfly.zumi import Memory
+
+    m = Memory("rate", CFG, 0)
+    for noun, prop in (("fire", "ho"), ("ice", "ku"), ("sugar", "bon")):
+        m.teach(noun, prop)
+    assert m.ask("fire", 2)[0] == 0 and m.ask("ice", 2)[0] == 1 and m.ask("sugar", 0)[0] == 0
+    assert m.ask("rock", 2)[1] < 0.05 < m.ask("fire", 2)[1]  # never heard: near-tie, below threshold

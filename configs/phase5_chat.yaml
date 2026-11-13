@@ -1,0 +1,117 @@
+# Phase 5 / Gate E: chat layer over the Gate C parity fly (FlyWire v783 right MB, ADR 0006/0007).
+# ADR 0009. All fly parameters are the Gate C ones (phase3_parity_flywire.yaml).
+# Sources: docs/04-research-notes.md. "arbitrary" = arbitrary default.
+# MBON types by the DAN cluster of their dendritic compartments (ADR 0007; docs/04-research-notes.md).
+# PPL1 compartments: alpha', alpha2, alpha3, gamma1, gamma2; all others PAM (Li et al. 2020).
+# Excluded: MBON10 (numbering unverified), 22 (calyx), 23 (unknown), 30 / 33 (span both clusters).
+mbon_clusters:
+  ppl1: &ppl1 [MBON11, MBON12, MBON13, MBON14, MBON15, MBON15-like, MBON16, MBON17, MBON17-like,
+               MBON18, MBON19, MBON20, "MBON25,MBON34", MBON28, MBON31, MBON32, MBON35]
+  pam: &pam [MBON01, MBON02, MBON03, MBON04, MBON05, MBON06, MBON07, MBON09, MBON21, MBON24,
+             MBON26, MBON27, MBON29]
+experiment: chat
+seed: 0                    # seeds the translation eval
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]          # test seeds
+select_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # held out: the confidence threshold is chosen here
+simulators: [rate, spiking]
+workers: 10               # parallel seed processes for the spiking model
+warmup_ms: 10.0            # compile-only warm-up run before workers start
+rng_streams: {tokens: 10000, task: 20000, noise: 1000, table: 30000, fly: 100, chat: 40000}
+
+chat:
+  task: {kind: parity}     # fsm.make_task: states s0 (even number of A), s1 (odd)
+  inputs: [A, B]           # the fly's input tokens, as the parser recognizes them
+  questions: {even: [s0], odd: [s1]}  # question keyword -> final states that mean "yes"
+  min_confidence: 0.0      # interactive mode only; set from the eval's chosen threshold
+  conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]  # candidate thresholds on the lowest step confidence
+  eval:
+    n_questions: 100       # fly questions per seed (random A/B sequences)
+    max_len: 10            # sequence length uniform in 1..max_len
+    n_parse_per_template: 20
+  templates_dev:           # used while writing the parser
+    - {text: "Is {seq} even?", ask: even}
+    - {text: "Does {seq} have an even number of A's?", ask: even}
+    - {text: "Is the number of A's in {seq} odd?", ask: odd}
+    - {text: "{seq}: even or odd?", ask: null}
+    - {text: "Tell me if {seq} is odd.", ask: odd}
+  templates_heldout:       # written before the first eval run and never used to tune the parser
+    - {text: "Would you call the sequence {seq} even?", ask: even}
+    - {text: "Quick one, is \"{seq}\" odd", ask: odd}
+    - {text: "even or odd: {seq}", ask: null}
+    - {text: "Check {seq} for me. Odd?", ask: odd}
+    - {text: "A question: is {seq} even?", ask: even}
+    - {text: "Is the count of A in {seq} even?", ask: even}
+    - {text: "Is {seq} an even sequence or not?", ask: even}
+    - {text: "Is {seq} not odd?", ask: even}   # gold = meaning (not odd = even)
+  out_of_scope:
+    - "What is your favourite colour?"
+    - "Is A B C even?"
+    - "Is ABBA a good band?"
+    - "Is x y x even?"
+    - "Do you like vinegar?"
+    - "Is A B even, and is B A odd?"
+    - "How many A's are in A B A?"
+    - "Is the empty sequence even?"
+
+mb:
+  source: flywire          # real PN->KC edges, KC->MBON mask, per-KC APL weights (ADR 0006)
+  compartments: []         # set per task: one output group per state (fsm.task_cfg)
+  mbon_groups: {s0: *ppl1, s1: *pam}  # output = DAN-cluster group (ADR 0007); s0 = even, s1 = odd
+
+connectome:                # data/README.md
+  dir: data/flywire_783
+  connections: proofread_connections_783.feather
+  annotations: Supplemental_file1_neuron_annotations.tsv
+  col_pre: pre_pt_root_id
+  col_post: post_pt_root_id
+  col_syn: syn_count
+  side: right
+  min_synapses: 5          # arbitrary: a PN->KC pair with >= 5 synapses counts as one claw; also the KC->MBON mask threshold
+  kc_min_claws: 1          # keep KCs with >= 1 uniglomerular-PN claw (drops non-olfactory KCs)
+  mbon_norm: group         # one KC->MBON scale per output group (ADR 0007); chosen on rate seeds 0-9, held-out check on 20-29
+
+tokens:
+  names: []                # set per task: state tokens + input tokens (fsm.task_cfg)
+  pn_active_frac: 0.15     # arbitrary: union of two tokens ~ 0.28 of PNs -> P(>=3 of 5 claws) ~ 14%
+  pn_on_hz: 200.0          # arbitrary (PN odor response rates unverified)
+  pn_spont_hz: 2.0         # arbitrary
+
+plasticity:                # ADR 0004 (trial-level rule; recovery term is an assumption)
+  w0: 1.0                  # arbitrary baseline weight (relative units)
+  eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
+  eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
+  elig_ref_hz: 20.0        # graded eligibility (ADR 0005); arbitrary, chosen on held-out seeds 10-19
+
+readout:
+  kc_active_hz: 2.0        # arbitrary: KC counted active (= 1 spike in a 500 ms window)
+  uncertain_band: 0.1      # arbitrary: |valence| below this -> "uncertain"
+
+rate:                      # rate model only (no noise)
+  w_pn_kc: 1.0             # arbitrary
+  kc_theta: 450.0          # arbitrary: between 2 and 3 active claws (2*200 vs 3*200 Hz)
+  kc_gain: 0.1            # arbitrary: ~10 Hz for a 3-claw KC, like the spiking model
+  g_apl: 20.0              # arbitrary
+  mbon_gain: 20.0          # arbitrary
+
+spiking:                   # Brian2 LIF (ADR 0003); time constants unverified
+  dt_ms: 0.1
+  codegen_target: cython
+  v_rest_mv: -70.0
+  v_reset_mv: -70.0
+  v_thresh_mv: -50.0
+  refractory_ms: 2.0
+  noise_sigma_mv: 2.0      # arbitrary background membrane noise
+  tau_kc_ms: 10.0
+  tau_mbon_ms: 20.0
+  tau_apl_ms: 20.0
+  w_pn_kc_mv: 2.0
+  g_apl_mv: 0.03
+  w_kc_mbon_mv: 1.0
+
+protocol:
+  duration_ms: 500.0       # arbitrary presentation window (one loop step)
+  n_test: 20               # test presentations per transition (no plasticity)
+  n_train: 20              # training epochs over the 4 transitions (as validated in ADR 0005)
+
+gate:
+  answered_acc_target: 0.99  # Gate E: accuracy of answered (non-uncertain) questions per seed

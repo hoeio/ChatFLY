@@ -1,0 +1,24 @@
+# Phase 7a (ADR 0012): Zumi dialogue corpus, generation metrics and non-fly baselines.
+# No fly yet. Lexicon and ring come from the Zumi config. All values arbitrary unless noted.
+experiment: speak_baselines
+base: configs/phase6_zumi.yaml
+seed: 0
+seeds: [60, 61, 62, 63, 64]   # corpus + RNN init per seed (test split never used for choices)
+rng_streams: {corpus: 70000}
+
+corpus:
+  n_train: 2000             # dialogues
+  n_dev: 200                # RNN epoch selection only
+  n_test: 500
+  turns: 30                 # utterances per dialogue
+  n_nouns: 6                # things talked about per dialogue (fresh random words each time)
+  noun_len: [3, 7]
+  max_teach: 3              # properties per "ka" sentence
+  p_kind: [0.25, 0.2, 0.1, 0.35, 0.1]   # teach, ask, what, ring, bad (speak.KINDS)
+  p_restart: 0.05           # ring utterances starting with bzz
+  ring: {max_moves: 3, p_question: [0.3, 0.35, 0.35], p_suppose: 0.25}  # as in phase6_zumi eval
+
+baselines:
+  ngram_orders: [1, 2, 3, 5, 8]
+  alpha: 0.01               # add-alpha smoothing at the backoff order
+  rnn: {hidden: 128, noun_dim: 32, epochs: 30, batch: 32, lr: 0.003, clip: 5.0}

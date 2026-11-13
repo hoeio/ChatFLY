@@ -23,6 +23,7 @@ from chatfly.conditioning import exp_conditioning, token_patterns
 from chatfly.fsm import exp_fsm_sweep, exp_multi_fly
 from chatfly.parity import exp_parity, exp_parity_table
 from chatfly.sim import SIMULATORS
+from chatfly.speak import exp_speak_baselines
 from chatfly.zumi import exp_zumi, exp_zumi_memory
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -98,7 +99,7 @@ def exp_bench(cfg: dict, seed: int) -> dict:
 EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning, "parity": exp_parity,
                "parity_table": exp_parity_table, "fsm_sweep": exp_fsm_sweep,
                "multi_fly": exp_multi_fly, "chat": exp_chat, "zumi": exp_zumi,
-               "zumi_memory": exp_zumi_memory}
+               "zumi_memory": exp_zumi_memory, "speak_baselines": exp_speak_baselines}
 
 
 def main(argv=None) -> Path:

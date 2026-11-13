@@ -58,22 +58,45 @@
   .legend { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line);
             color: var(--muted); font-size: 13px; }
   .legend p { margin: 6px 0; }
+  .legend code, .why code { font: 12px ui-monospace, Menlo, monospace; background: var(--chip);
+                            padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+  #ring { display: none; align-items: center; gap: 6px; margin-bottom: 16px;
+          font: 13px ui-monospace, Menlo, monospace; color: var(--muted); }
+  #ring .pl { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
+              background: var(--panel); color: var(--ink); }
+  #ring .pl.here { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+  #ring .lost { color: var(--unc); }
+  .gloss { color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
   <h1>ChatFLY</h1>
-  <p class="sub">Ask a simulated fly mushroom body whether a sequence of A and B has an even or
+  <p class="sub" id="sub">Ask a simulated fly mushroom body whether a sequence of A and B has an even or
     odd number of A's. It is a computational model built from the FlyWire connectome, not a
     living fly.</p>
   <div class="meta" id="meta">loading…</div>
+  <div id="ring" aria-live="polite"></div>
   <div class="examples" id="examples"></div>
   <div id="log" aria-live="polite"></div>
   <form id="f">
     <input id="q" autocomplete="off" placeholder="Is A B B A even?" aria-label="Your question">
     <button id="send">Ask</button>
   </form>
-  <div class="legend">
+  <div class="legend" id="legend-zumi" hidden>
+    <p><b>Zumi in one line:</b> <code>[bzz] [si] moves… [nu | place ba]</code></p>
+    <p>places <code>ne</code> nest · <code>fi</code> flower · <code>po</code> pond (a loop:
+      ne → fi → po → ne) · moves <code>zu</code> fly on · <code>ki</code> fly back ·
+      <code>ta</code> stay · ask <code>nu</code> where? · <code>po ba</code> at the pond? ·
+      <code>si</code> what if (imagine, don't move) · <code>bzz</code> start over</p>
+    <p>The fly says <code>ya</code> yes · <code>na</code> no · <code>o</code> okay ·
+      <code>hm</code> not sure · <code>e</code> huh? Full guide: <code>docs/zumi-guide.md</code>.</p>
+    <p><b>How it answers.</b> A fixed parser (no LLM) splits your sentence by the one grammar
+      rule. The fly runs each move word through its feedback loop, starting from where it last
+      was, so its memory of its place is the loop itself. The page only names the fly's final
+      place; it never looks at the map.</p>
+  </div>
+  <div class="legend" id="legend-parity">
     <p><b>How it answers.</b> A fixed parser (no LLM) turns your sentence into tokens. The fly
       then runs them through its feedback loop, one step per token. Each step's decoded state is
       fed back as input to the next step. The reply comes only from the fly's final state.</p>
@@ -86,8 +109,11 @@
 <script>
 const $ = (id) => document.getElementById(id);
 let info = null;
-const EXAMPLES = ["Is A B B A even?", "Does ABBA have an odd number of A's?",
-                  "A B A: even or odd?", "Is ABBA not odd?", "Is A B C even?"];
+const EXAMPLES = {
+  parity: ["Is A B B A even?", "Does ABBA have an odd number of A's?",
+           "A B A: even or odd?", "Is ABBA not odd?", "Is A B C even?"],
+  zumi: ["nu?", "zu.", "zu nu?", "si ki nu?", "po ba?", "zu zu ki fi ba?", "bzz nu?", "nu zu?"],
+};
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -99,6 +125,10 @@ function el(tag, cls, text) {
 function add(node) { $("log").append(node); node.scrollIntoView({block: "nearest"}); }
 
 function badge(out) {
+  if (info.mode === "zumi") {
+    const cls = {e: "b-ref", hm: "b-unc", na: "b-no"}[out.reply] || "b-yes";
+    return [out.reply.toUpperCase(), cls];
+  }
   if (out.parsed && out.parsed.refuse) return ["REFUSED", "b-ref"];
   const a = out.answer;
   if (a === "uncertain") return ["UNCERTAIN", "b-unc"];
@@ -109,13 +139,16 @@ function badge(out) {
 function render(out) {
   const m = el("div", "msg fly");
   const [b, cls] = badge(out);
-  m.append(el("span", "badge " + cls, b), document.createTextNode(out.reply));
+  m.append(el("span", "badge " + cls, b));
+  if (info.mode === "zumi") m.append(el("span", "gloss", out.gloss));
+  else m.append(document.createTextNode(out.reply));
   if (out.trace && out.trace.length) {
     const t = el("div", "trace");
-    t.append(el("span", "st", info.labels[out.start] || out.start));
+    const name = (s) => info.mode === "zumi" ? s : (info.labels[s] || s);
+    t.append(el("span", "st", name(out.start)));
     for (const [x, s, c] of out.trace) {
       t.append(el("span", "tok", "→" + x + "→"));
-      const st = el("span", "st", s === null ? "?" : (info.labels[s] || s));
+      const st = el("span", "st", s === null ? "?" : name(s));
       if (s === null) st.classList.add("bad");
       else if (c < info.threshold) st.classList.add("low");
       st.title = "step confidence " + c.toFixed(2);
@@ -124,11 +157,24 @@ function render(out) {
     m.append(t);
   }
   add(m);
+  if (info.mode === "zumi") ring(out.place);
+}
+
+function ring(here) {
+  const r = $("ring");
+  r.replaceChildren(el("span", null, "the fly is at:"));
+  for (const p of Object.keys(info.places)) {
+    const s = el("span", "pl" + (p === here ? " here" : ""), p);
+    s.title = info.places[p];
+    r.append(s);
+  }
+  if (here === null) r.append(el("span", "lost", "lost — say bzz"));
 }
 
 async function ask(text) {
   add(el("div", "msg you", text));
-  const pending = el("div", "msg fly why", "The fly is running the sequence…");
+  const pending = el("div", "msg fly why", info.mode === "zumi" ? "The fly is flying…"
+                                                                : "The fly is running the sequence…");
   add(pending);
   $("send").disabled = true;
   try {
@@ -154,17 +200,32 @@ $("f").addEventListener("submit", (e) => {
   ask(text);
 });
 
-for (const ex of EXAMPLES) {
-  const b = el("button", null, ex);
-  b.type = "button";
-  b.onclick = () => { if (!$("send").disabled) ask(ex); };
-  $("examples").append(b);
-}
-
 fetch("/info").then((r) => r.json()).then((i) => {
   info = i;
-  $("meta").textContent = `simulator: ${i.sim} · tokens: ${i.inputs.join(", ")} · ` +
-    `confidence threshold: ${i.threshold}`;
+  if (i.mode === "zumi") {
+    document.title = "Zumi demo";
+    document.querySelector("h1").textContent = "Zumi";
+    $("sub").textContent = "Talk to a simulated fly mushroom body in Zumi, a ten-word language. " +
+      "The fly lives on a loop of three places and remembers where it is between turns. It is " +
+      "a computational model (synthetic wiring), not a living fly.";
+    $("q").placeholder = "zu nu?";
+    $("q").setAttribute("aria-label", "Your Zumi sentence");
+    $("send").textContent = "Say";
+    $("legend-zumi").hidden = false;
+    $("legend-parity").hidden = true;
+    $("ring").style.display = "flex";
+    ring(i.place);
+    $("meta").textContent = `simulator: ${i.sim} · confidence threshold: ${i.threshold}`;
+  } else {
+    $("meta").textContent = `simulator: ${i.sim} · tokens: ${i.inputs.join(", ")} · ` +
+      `confidence threshold: ${i.threshold}`;
+  }
+  for (const ex of EXAMPLES[i.mode]) {
+    const b = el("button", null, ex);
+    b.type = "button";
+    b.onclick = () => { if (!$("send").disabled) ask(ex); };
+    $("examples").append(b);
+  }
 });
 </script>
 </body>

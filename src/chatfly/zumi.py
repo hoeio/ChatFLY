@@ -72,6 +72,7 @@ class Conversation:
             return {**out, "reply": r["huh"], "gloss": f"Huh? ({why}.)"}
         if p["restart"]:
             self.place, self.low = self.task["states"][0], 1.0
+        out["start"] = self.place
         if self.place is None:
             return {**out, "reply": r["unsure"],
                     "gloss": f"I lost track of where I am. Say '{lx['restart']}' to start over."}

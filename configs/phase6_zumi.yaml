@@ -30,8 +30,9 @@ lang:                      # the Zumi lexicon (docs/zumi-guide.md); words are th
   suppose: si              # "what if": run the moves without moving
   restart: bzz             # start over at the nest (interface rule, not learned)
   replies: {"yes": ya, "no": na, unsure: hm, ok: o, huh: e}  # quoted: YAML reads bare yes/no as booleans
-  min_confidence: {rate: 0.0, spiking: 0.0}  # interactive only; set from the selection seeds of a run
+  min_confidence: {rate: 0.0, spiking: 0.0}  # interactive / web: thresholds chosen on seeds 10-19 (results/20261113-204727_phase6_zumi_s0)
   conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]
+  web: {max_chars: 300, max_tokens: 40}  # demo site (chatfly.web) input limits; arbitrary
   eval:
     n_conversations: 20    # per seed
     turns: 8               # utterances per conversation

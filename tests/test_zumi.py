@@ -66,3 +66,37 @@ def test_conversation(monkeypatch):
     assert conv.turn("nu?")["reply"] == "hm" and conv.place is None
     conv.sim.conf = 0.5
     assert conv.turn("bzz nu?")["reply"] == "ne"
+
+
+def test_web_demo_zumi():
+    """Zumi demo server on a real rate fly: page, memory across turns, a refusal, the limit."""
+    import json
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import HTTPServer
+
+    from chatfly.chat import fly_for
+    from chatfly.web import make_handler, zumi_app
+
+    srv = HTTPServer(("127.0.0.1", 0), make_handler(*zumi_app(fly_for("rate", CFG, 0), LX, "rate")))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_port}"
+
+    def ask(text):
+        req = urllib.request.Request(url + "/ask", data=json.dumps({"text": text}).encode(),
+                                     method="POST")
+        try:
+            return json.loads(urllib.request.urlopen(req).read())
+        except urllib.error.HTTPError as e:
+            return json.loads(e.read())
+
+    try:
+        assert json.loads(urllib.request.urlopen(url + "/info").read())["mode"] == "zumi"
+        out = ask("zu nu?")
+        assert out["reply"] in ("fi", "hm") and out["start"] == "ne" and len(out["trace"]) == 1
+        assert ask("nu?")["place"] == out["place"]          # remembered across requests
+        assert ask("nu zu?")["reply"] == "e"
+        assert "error" in ask("zu " * 41 + "nu?")           # max_tokens
+    finally:
+        srv.shutdown()

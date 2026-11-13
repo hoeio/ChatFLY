@@ -58,13 +58,13 @@ def test_web_demo():
     import yaml
 
     from chatfly.chat import fly_for
-    from chatfly.web import make_handler
+    from chatfly.web import chat_app, make_handler
 
     root = Path(__file__).parents[1]
     cfg = yaml.safe_load((root / "configs" / "phase5_chat.yaml").read_text())
     if not (root / cfg["connectome"]["dir"]).exists():
         pytest.skip("FlyWire data not present (data/README.md)")
-    srv = HTTPServer(("127.0.0.1", 0), make_handler(fly_for("rate", cfg, 0), cfg["chat"], "rate"))
+    srv = HTTPServer(("127.0.0.1", 0), make_handler(*chat_app(fly_for("rate", cfg, 0), cfg["chat"], "rate")))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{srv.server_port}"
 

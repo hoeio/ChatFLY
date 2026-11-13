@@ -9,6 +9,7 @@ Try it:
 ```bash
 python -m chatfly.zumi configs/phase6_zumi.yaml            # fast rate model
 python -m chatfly.zumi configs/phase6_zumi.yaml --sim spiking
+python -m chatfly.web configs/phase6_zumi.yaml               # in the browser: http://127.0.0.1:8000
 ```
 
 ---

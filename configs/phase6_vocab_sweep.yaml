@@ -1,0 +1,79 @@
+# Phase 6: which Zumi vocabularies can one fly learn? (ADR 0010). Rate model, synthetic MB at
+# the Phase 4 parameters. Run on the selection seeds 10-19 only: the vocabulary was chosen
+# from this run, so test seeds 0-9 stay unused until phase6_zumi(_fsm).yaml.
+# Rings: places 0..n-1 in a loop; zu = +1, ki = -1, ta = 0 (stay), pa = +2, ho = go to place 0.
+experiment: fsm_sweep
+seed: 0
+seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+simulators: [rate]
+rng_streams: {tokens: 10000, task: 20000, noise: 1000, table: 30000, fly: 100}
+
+tasks:
+  - {kind: table, name: ring3_zu_ki, delta: {ne: {zu: fi, ki: po}, fi: {zu: po, ki: ne}, po: {zu: ne, ki: fi}}}
+  - {kind: table, name: ring3_zu_ki_ta, delta: {ne: {zu: fi, ki: po, ta: ne}, fi: {zu: po, ki: ne, ta: fi}, po: {zu: ne, ki: fi, ta: po}}}
+  - {kind: table, name: ring3_zu_ki_ho, delta: {ne: {zu: fi, ki: po, ho: ne}, fi: {zu: po, ki: ne, ho: ne}, po: {zu: ne, ki: fi, ho: ne}}}
+  - {kind: table, name: ring3_zu_ki_ta_ho, delta: {ne: {zu: fi, ki: po, ta: ne, ho: ne}, fi: {zu: po, ki: ne, ta: fi, ho: ne}, po: {zu: ne, ki: fi, ta: po, ho: ne}}}
+  - {kind: table, name: ring4_zu_ki_ta, delta: {ne: {zu: fi, ki: mo, ta: ne}, fi: {zu: po, ki: ne, ta: fi}, po: {zu: mo, ki: fi, ta: po}, mo: {zu: ne, ki: po, ta: mo}}}
+  - {kind: table, name: ring4_zu_ki_ho, delta: {ne: {zu: fi, ki: mo, ho: ne}, fi: {zu: po, ki: ne, ho: ne}, po: {zu: mo, ki: fi, ho: ne}, mo: {zu: ne, ki: po, ho: ne}}}
+  - {kind: table, name: ring4_zu_ki_ta_pa, delta: {ne: {zu: fi, ki: mo, ta: ne, pa: po}, fi: {zu: po, ki: ne, ta: fi, pa: mo}, po: {zu: mo, ki: fi, ta: po, pa: ne}, mo: {zu: ne, ki: po, ta: mo, pa: fi}}}
+  - {kind: table, name: ring5_zu_ki_ta, delta: {a: {zu: b, ki: e, ta: a}, b: {zu: c, ki: a, ta: b}, c: {zu: d, ki: b, ta: c}, d: {zu: e, ki: c, ta: d}, e: {zu: a, ki: d, ta: e}}}
+
+mb:
+  n_pn: 150                # ~150 uniglomerular PNs (Choi 2022); FAFB counts more incl. multiglomerular
+  n_kc: 2000               # ~2000 KCs per hemisphere (Aso 2014)
+  claws_per_kc: 5          # EM 5.2 +- 1.6 claws per KC (Zheng 2022)
+  compartments: []         # set per task: one output group per state (fsm.task_cfg)
+  mbon_per_compartment: 4  # arbitrary (34 MBON cells / 21 types per hemisphere, Aso 2014)
+
+tokens:
+  names: []                # set per task: state tokens + input tokens (fsm.task_cfg)
+  pn_active_frac: 0.15     # arbitrary: union of two tokens ~ 0.28 of PNs -> P(>=3 of 5 claws) ~ 14%
+  pn_on_hz: 200.0          # arbitrary (PN odor response rates unverified)
+  pn_spont_hz: 2.0         # arbitrary
+
+plasticity:                # ADR 0004 (trial-level rule; recovery term is an assumption)
+  w0: 1.0                  # arbitrary baseline weight (relative units)
+  eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
+  eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
+  elig_ref_hz: 20.0        # graded eligibility (ADR 0005); arbitrary, chosen on held-out seeds 10-19
+
+readout:
+  kc_active_hz: 2.0        # arbitrary: KC counted active (= 1 spike in a 500 ms window)
+  uncertain_band: 0.1      # arbitrary: |valence| below this -> "uncertain"
+
+rate:                      # rate model only (no noise)
+  w_pn_kc: 1.0             # arbitrary
+  kc_theta: 450.0          # arbitrary: between 2 and 3 active claws (2*200 vs 3*200 Hz)
+  kc_gain: 0.1            # arbitrary: ~10 Hz for a 3-claw KC, like the spiking model
+  g_apl: 20.0              # arbitrary
+  mbon_gain: 20.0          # arbitrary
+
+spiking:                   # Brian2 LIF (ADR 0003); time constants unverified
+  dt_ms: 0.1
+  codegen_target: cython
+  v_rest_mv: -70.0
+  v_reset_mv: -70.0
+  v_thresh_mv: -50.0
+  refractory_ms: 2.0
+  noise_sigma_mv: 2.0      # arbitrary background membrane noise
+  tau_kc_ms: 10.0
+  tau_mbon_ms: 20.0
+  tau_apl_ms: 20.0
+  w_pn_kc_mv: 2.0
+  g_apl_mv: 0.03
+  w_kc_mbon_mv: 1.0
+
+protocol:
+  duration_ms: 500.0       # arbitrary presentation window (one loop step)
+  n_test: 20               # test presentations per transition (no plasticity)
+  n_train: 20              # training epochs over the 4 transitions (as validated in ADR 0005)
+
+loop:
+  length: 50
+  n_seq: 10
+
+controls:
+  pn_active_hz: 20.0       # arbitrary: PN counted active in the PN-direct control (spont 2, on 200)
+
+gate:
+  step_acc_target: 0.99    # Phase 2 per-seed criterion

@@ -1,0 +1,93 @@
+# Phase 6: conversations in Zumi (ADR 0010, docs/zumi-guide.md). Synthetic MB at the Gate B /
+# Phase 4 parameters (3 output groups: not biologically grounded on real wiring, ADR 0007).
+# Sources: docs/04-research-notes.md. "arbitrary" = arbitrary default.
+experiment: zumi
+seed: 0
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]                  # test seeds
+select_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # held out: the confidence threshold is chosen here
+simulators: [rate, spiking]
+workers: 10               # parallel seed processes for the spiking model
+warmup_ms: 10.0            # compile-only warm-up run before workers start
+rng_streams: {tokens: 10000, task: 20000, noise: 1000, table: 30000, fly: 100, chat: 40000}
+
+chat:
+  # The meaning of Zumi: a ring nest -> flower -> pond -> nest. zu = fly on (clockwise),
+  # ki = fly back, ta = stay. Every move word permutes the places (a Latin square), which keeps
+  # every row/column margin <= 2 (Phase 4 failure mechanism; ADR 0010). First state = start.
+  task:
+    kind: table
+    name: zumi
+    delta:
+      ne: {zu: fi, ki: po, ta: ne}
+      fi: {zu: po, ki: ne, ta: fi}
+      po: {zu: ne, ki: fi, ta: po}
+
+lang:                      # the Zumi lexicon (docs/zumi-guide.md); words are the fly's tokens
+  places: {ne: nest, fi: flower, po: pond}   # fly states -> English gloss
+  moves: {zu: fly on, ki: fly back, ta: stay}  # fly inputs -> English gloss
+  where: nu                # "where?"
+  yesno: ba                # "<place> ba" = "am I at <place>?"
+  suppose: si              # "what if": run the moves without moving
+  restart: bzz             # start over at the nest (interface rule, not learned)
+  replies: {"yes": ya, "no": na, unsure: hm, ok: o, huh: e}  # quoted: YAML reads bare yes/no as booleans
+  min_confidence: {rate: 0.0, spiking: 0.0}  # interactive only; set from the selection seeds of a run
+  conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]
+  eval:
+    n_conversations: 20    # per seed
+    turns: 8               # utterances per conversation
+    max_moves: 3           # move words per utterance, uniform 0..max_moves
+    p_question: [0.3, 0.35, 0.35]  # statement / where / yes-no; arbitrary
+    p_suppose: 0.25        # arbitrary
+
+mb:
+  n_pn: 150                # ~150 uniglomerular PNs (Choi 2022); FAFB counts more incl. multiglomerular
+  n_kc: 2000               # ~2000 KCs per hemisphere (Aso 2014)
+  claws_per_kc: 5          # EM 5.2 +- 1.6 claws per KC (Zheng 2022)
+  compartments: []         # set per task: one output group per state (fsm.task_cfg)
+  mbon_per_compartment: 4  # arbitrary (34 MBON cells / 21 types per hemisphere, Aso 2014)
+
+tokens:
+  names: []                # set per task: state tokens + input tokens (fsm.task_cfg)
+  pn_active_frac: 0.15     # arbitrary: union of two tokens ~ 0.28 of PNs -> P(>=3 of 5 claws) ~ 14%
+  pn_on_hz: 200.0          # arbitrary (PN odor response rates unverified)
+  pn_spont_hz: 2.0         # arbitrary
+
+plasticity:                # ADR 0004 (trial-level rule; recovery term is an assumption)
+  w0: 1.0                  # arbitrary baseline weight (relative units)
+  eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
+  eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
+  elig_ref_hz: 20.0        # graded eligibility (ADR 0005); arbitrary, chosen on held-out seeds 10-19
+
+readout:
+  kc_active_hz: 2.0        # arbitrary: KC counted active (= 1 spike in a 500 ms window)
+  uncertain_band: 0.1      # arbitrary: |valence| below this -> "uncertain"
+
+rate:                      # rate model only (no noise)
+  w_pn_kc: 1.0             # arbitrary
+  kc_theta: 450.0          # arbitrary: between 2 and 3 active claws (2*200 vs 3*200 Hz)
+  kc_gain: 0.1            # arbitrary: ~10 Hz for a 3-claw KC, like the spiking model
+  g_apl: 20.0              # arbitrary
+  mbon_gain: 20.0          # arbitrary
+
+spiking:                   # Brian2 LIF (ADR 0003); time constants unverified
+  dt_ms: 0.1
+  codegen_target: cython
+  v_rest_mv: -70.0
+  v_reset_mv: -70.0
+  v_thresh_mv: -50.0
+  refractory_ms: 2.0
+  noise_sigma_mv: 2.0      # arbitrary background membrane noise
+  tau_kc_ms: 10.0
+  tau_mbon_ms: 20.0
+  tau_apl_ms: 20.0
+  w_pn_kc_mv: 2.0
+  g_apl_mv: 0.03
+  w_kc_mbon_mv: 1.0
+
+protocol:
+  duration_ms: 500.0       # arbitrary presentation window (one loop step)
+  n_test: 20               # test presentations per transition (no plasticity)
+  n_train: 20              # training epochs over the 4 transitions (as validated in ADR 0005)
+
+gate:
+  answered_acc_target: 0.99  # per seed, as Gate E

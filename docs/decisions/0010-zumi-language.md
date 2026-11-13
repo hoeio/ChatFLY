@@ -1,0 +1,57 @@
+# 0010. Phase 6: Zumi, a small conversational language for one fly
+
+- Status: Accepted (goal set by the user, 2026-11-13: "make a really simple language that can talk well, with a guidebook, and train chatfly on it")
+- Date: 2026-11-13
+
+## Context
+
+Phase 5 only answers "is this A/B sequence even or odd?". The user asked for a language that
+is simple, learnable by a person, and lets them hold a conversation with the fly. The
+constraints come from earlier phases:
+
+- One fly is a learned transition table with one output group per state (ADR 0008).
+- Phase 4: one fly fails tables whose entries are outvoted by their row/column mates
+  (margin ≥ 3); structured tables with margin ≤ 2 are learned.
+- Real wiring grounds only 2 output groups (ADR 0007). A 3-state language therefore uses the
+  synthetic MB at the Gate B / Phase 4 parameters.
+- The interface must not do the fly's work (CLAUDE.md principle 2).
+
+## Options
+
+1. More question types over parity: still 1 bit; nothing to talk about.
+2. A world the fly tracks: states = places, input tokens = move words, kept across turns in
+   the feedback loop. Conversation = telling the fly to move and asking where it is.
+3. Several flies, one per topic, routed by word: more to talk about, but the router is glue
+   and Gate D found no gain from several flies.
+
+## Decision
+
+Option 2, as the language **Zumi** (`docs/zumi-guide.md`):
+
+1. **World:** a ring of three places `ne → fi → po → ne`. Moves `zu` (+1), `ki` (−1), `ta` (stay).
+   Each move permutes the places, so the table is a Latin square and every margin is ≤ 2.
+   The vocabulary was chosen with `configs/phase6_vocab_sweep.yaml` on seeds 10–19 (rate);
+   a "go home" word, 4-place and 5-place rings were tested and rejected there.
+2. **Grammar** (regular, fixed parser `zumi.parse`): `[bzz] [si] move* [nu | <place> ba]`.
+   Unknown words and wrong order are refused (`e`), never guessed.
+3. **Who does what:**
+   - The fly computes every step (place, move) → place in its closed loop. Its last decoded place is
+     kept between turns, so its memory is the same loop as in Phase 2.
+   - The interface does fixed rules only: word → token, final state → word, equality for
+     `ba`, discarding the result for `si`, reset to the start for `bzz`. It never reads the table.
+4. **Honesty:** a turn's confidence is the lowest step confidence since the last reset. Below
+   the threshold the fly says `hm`. It stays `hm` until `bzz`, since a later answer would be a guess.
+5. **Evaluation** (`configs/phase6_zumi.yaml`, `configs/phase6_zumi_fsm.yaml`):
+   - transition accuracy, 50-step loops, PN-direct (no KC) and teacher-shuffle controls;
+   - random grammatical conversations (8 turns), scored per question turn;
+   - threshold chosen on seeds 10–19, reported on seeds 0–9;
+   - target: answered accuracy ≥ 0.99 on every test seed, as Gate E (c);
+   - teacher shuffle behind the same interface should answer at chance (1/3).
+
+## Consequences
+
+- The language is small: 3 places, 3 moves, 2 question forms, "what if", restart. Growing it
+  needs either a new structure the fly can learn (margin ≤ 2) or routed glue (ADR 0008).
+- `bzz` is an interface reset, not learned; a learned "go home" fails (sweep).
+- Synthetic wiring only. The no-KC control is what shows the KC layer is needed; there is no
+  connectome-structure claim.

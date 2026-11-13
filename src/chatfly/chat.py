@@ -47,11 +47,11 @@ def parse(text: str, inputs: list[str], keywords: list[str], negations: list[str
     return {"tokens": toks, "ask": asked[0] if len(asked) == 1 else None}
 
 
-def ask_fly(sim, pats, task, dur, tokens, trace=None) -> tuple[str | None, float]:
-    """Run the tokens through the closed loop from the start state. Returns (final state,
+def ask_fly(sim, pats, task, dur, tokens, trace=None, start=None) -> tuple[str | None, float]:
+    """Run the tokens through the closed loop from start (default: the task's start state). Returns (final state,
     lowest per-step confidence); (None, 0.0) if any step decodes as uncertain. trace (a list),
     if given, gets one (input, decoded state or None, confidence) per step."""
-    s, low = task["states"][0], 1.0
+    s, low = start or task["states"][0], 1.0
     for x in tokens:
         d, c = decode(sim, sim.present(present_pair(pats, s, x), dur)["mbon"])
         if trace is not None:

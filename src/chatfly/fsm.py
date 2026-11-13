@@ -20,7 +20,8 @@ log = logging.getLogger("chatfly")
 
 
 def make_task(spec: dict, rng) -> dict:
-    """spec.kind: parity | mod (n) | no_aa | random (n_states, n_inputs).
+    """spec.kind: parity | mod (n) | no_aa | random (n_states, n_inputs) | table (delta given
+    as {state: {input: next}}; the first state is the start state).
     Returns {"name", "states", "inputs", "delta": {s: {x: s'}}}."""
     k = spec["kind"]
     if k in ("parity", "mod"):
@@ -37,6 +38,10 @@ def make_task(spec: dict, rng) -> dict:
         xs = [f"x{j}" for j in range(spec["n_inputs"])]
         delta = {s: {x: st[rng.integers(len(st))] for x in xs} for s in st}
         return {"name": f"rand{len(st)}x{len(xs)}", "states": st, "inputs": xs, "delta": delta}
+    if k == "table":
+        d = spec["delta"]
+        return {"name": spec.get("name", "table"), "states": list(d), "inputs": list(d[next(iter(d))]),
+                "delta": {s: dict(r) for s, r in d.items()}}
     raise ValueError(k)
 
 

@@ -23,7 +23,7 @@ chat:
   inputs: [A, B]           # the fly's input tokens, as the parser recognizes them
   questions: {even: [s0], odd: [s1]}  # question keyword -> final states that mean "yes"
   negations: ["not", "no", "never", "nor", "n't"]  # refused (ADR 0009); quoted: YAML reads bare no as false
-  min_confidence: 0.0      # interactive mode only; set from the eval's chosen threshold
+  min_confidence: {rate: 0.0, spiking: 0.05}  # interactive mode only: thresholds chosen on seeds 10-19 (results/20261113-180326_phase5_chat_s0)
   conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]  # candidate thresholds on the lowest step confidence
   eval:
     n_questions: 100       # fly questions per seed (random A/B sequences)

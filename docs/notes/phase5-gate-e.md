@@ -21,7 +21,7 @@ The user confirmed the ADR 0009 criteria and the parser fix. Negated questions a
 | (c) answered acc ≥ 0.99 on every test seed | rate pass; **spiking 8/10: open** |
 | (d) teacher-shuffle ≤ 0.6 | pass |
 
-Gate E is not passed until (c) is decided. The options are in "Gate E against the proposed criteria" below.
+**Gate E verdict: near-pass, accepted by the user (2026-11-13).** (a), (b) and (d) pass. (c) passes for rate and holds on 8/10 spiking test seeds. On the two failing seeds the fly mostly answers "uncertain" instead of answering wrongly (seed 8: 8% coverage, answered accuracy 0.875; seed 5: 52%, 0.942). The weak (s0, A) transition under some training orders is the same fragility as Gate C and is left as is. Interactive mode uses the chosen thresholds (`chat.min_confidence`).
 
 ## First run
 

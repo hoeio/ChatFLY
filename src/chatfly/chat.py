@@ -208,7 +208,7 @@ def main(argv=None):
         ans, conf = None, 0.0
         if "refuse" not in pr:
             f, conf = ask_fly(sim, pats, task, c["protocol"]["duration_ms"], pr["tokens"])
-            ans = answer(f, conf, pr["ask"], ch["questions"], ch["min_confidence"])
+            ans = answer(f, conf, pr["ask"], ch["questions"], ch["min_confidence"][a.sim])
         print(reply(pr, ans, conf, ch))
 
 

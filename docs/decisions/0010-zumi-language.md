@@ -30,8 +30,19 @@ Option 2, as the language **Zumi** (`docs/zumi-guide.md`):
 
 1. **World:** a ring of three places `ne → fi → po → ne`. Moves `zu` (+1), `ki` (−1), `ta` (stay).
    Each move permutes the places, so the table is a Latin square and every margin is ≤ 2.
-   The vocabulary was chosen with `configs/phase6_vocab_sweep.yaml` on seeds 10–19 (rate);
-   a "go home" word, 4-place and 5-place rings were tested and rejected there.
+   The vocabulary was chosen with `configs/phase6_vocab_sweep.yaml` on seeds 10–19 (rate,
+   `results/20261113-195555_phase6_vocab_sweep_s0`; seeds ≥ 0.99 of 10):
+
+   | vocabulary | seeds | | vocabulary | seeds |
+   |---|---|---|---|---|
+   | ring3 zu ki | 10 | | ring4 zu ki ta | 8 |
+   | **ring3 zu ki ta** | **10** | | ring4 zu ki ho | 1 |
+   | ring3 zu ki ho ("go home") | 4 | | ring4 zu ki ta pa (+2) | 1 |
+   | ring3 zu ki ta ho | 1 | | ring5 zu ki ta | 5 |
+
+   A state-independent word (`ho`) breaks learning, as the margin analysis predicts. Margin
+   ≤ 2 is not sufficient, though: the full 4-place Latin square (with `pa` = +2) fails too.
+   The largest vocabulary learned on every seed is the 3-place ring with three moves.
 2. **Grammar** (regular, fixed parser `zumi.parse`): `[bzz] [si] move* [nu | <place> ba]`.
    Unknown words and wrong order are refused (`e`), never guessed.
 3. **Who does what:**

@@ -195,8 +195,9 @@ A control fly trained with a shuffled teacher, behind the same interface, answer
 The fly learns well only if, for each place and each move, the right answer is not
 outvoted by the answers of the other moves from the same place and the same move from other
 places (Phase 4 failure mechanism, `docs/notes/phase4-gate-d.md`). Moves that **shuffle the
-places** (every move from every place leads somewhere different) satisfy this. A word like
+places** (every move from every place leads somewhere different) help. A word like
 "go home" breaks it: tested, the fly learned it on only 4 of 10 seeds. A loop of four places
-was learned on 8 of 10 seeds in the rate model, five places on 5 of 10. Three places and
-three moves are what the fly learns reliably. That is why `bzz` (start over) is an interface
+was learned on 8 of 10 seeds in the rate model, with an extra "jump two" word on 1 of 10, and
+five places on 5 of 10 (`docs/decisions/0010-zumi-language.md`). Three places and three
+moves are what the fly learns on every seed. That is why `bzz` (start over) is an interface
 rule, not a word the fly learned.

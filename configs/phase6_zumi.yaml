@@ -3,7 +3,7 @@
 # Sources: docs/04-research-notes.md. "arbitrary" = arbitrary default.
 experiment: zumi
 seed: 0
-seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]                  # test seeds
+seeds: [60, 61, 62, 63, 64, 65, 66, 67, 68, 69]         # test seeds (v2; 0-9 were used by v1, 20-59 for tuning)
 select_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # held out: the confidence threshold is chosen here
 simulators: [rate, spiking]
 workers: 10               # parallel seed processes for the spiking model
@@ -54,7 +54,7 @@ tokens:
 
 plasticity:                # ADR 0004 (trial-level rule; recovery term is an assumption)
   w0: 1.0                  # arbitrary baseline weight (relative units)
-  eta_dep: 0.5             # arbitrary: fraction of weight removed per KC x DAN pairing
+  eta_dep: 0.3             # Zumi v2 (ADR 0010): 0.5 failed test seeds 0-9; 0.3 chosen on dev seeds 20-59 (rate), 20-29 (spiking)
   eta_rec: 0.3             # arbitrary: fraction of the gap to w0 recovered per KC-active, DAN-silent trial
   elig_ref_hz: 20.0        # graded eligibility (ADR 0005); arbitrary, chosen on held-out seeds 10-19
 

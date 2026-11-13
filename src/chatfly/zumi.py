@@ -11,6 +11,7 @@ It never reads the transition table; that exists only for training and in the ev
 Interactive: python -m chatfly.zumi configs/phase6_zumi.yaml [--sim rate|spiking] [--seed N]
 """
 
+import logging
 import re
 from concurrent.futures import ProcessPoolExecutor
 
@@ -18,6 +19,8 @@ import numpy as np
 
 from chatfly.chat import ask_fly, fly_for, load, pick_threshold, score
 from chatfly.fsm import _warm
+
+log = logging.getLogger("chatfly")
 
 
 def parse(text: str, lx: dict) -> dict:
@@ -152,8 +155,9 @@ def exp_zumi(cfg: dict, seed: int) -> dict:
             if r["random_teacher"]:
                 del r["rows"]  # keep the file small
         for r in test:
-            print(f"{kind} seed {r['seed']}{' (teacher shuffle)' * r['random_teacher']} "
-                  f"@{thr}: {r['at_threshold']} conv-ok {r['conversations_all_correct']:.2f}")
+            log.info("%s seed %d%s @%.2f: %s conv-ok %.2f", kind, r["seed"],
+                     " (teacher shuffle)" * r["random_teacher"], thr, r["at_threshold"],
+                     r["conversations_all_correct"])
         out.append({"simulator": kind, "threshold": thr, "select": sel, "test": test})
     return {"fly": out}
 

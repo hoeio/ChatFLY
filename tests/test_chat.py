@@ -28,3 +28,18 @@ def test_answer_and_reply():
     assert "uncertain" in reply(p, "uncertain", 0.05, ch)
     assert reply(p, "no", 0.5, ch).startswith("The fly says no")
     assert reply({"refuse": "unknown_tokens", "unknown": ["C"]}, None, 0, ch).startswith("I can't")
+
+
+def test_config_translation():
+    """The shipped config loads as strings, and dev / out-of-scope sets behave (no fly)."""
+    from pathlib import Path
+
+    import numpy as np
+    import yaml
+
+    from chatfly.chat import translation_eval
+
+    cfg = yaml.safe_load((Path(__file__).parents[1] / "configs" / "phase5_chat.yaml").read_text())
+    assert all(isinstance(n, str) for n in cfg["chat"]["negations"])
+    tr = translation_eval(cfg, np.random.default_rng(0))
+    assert tr["dev"]["acc"] == 1.0 and tr["out_of_scope"]["refused"] == 1.0

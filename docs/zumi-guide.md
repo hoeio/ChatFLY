@@ -84,7 +84,21 @@ fly: hm               # you never said
 
 ### How much can it remember?
 
-TODO_CAPACITY
+It depends on how many things you teach it. Each thing's smell lights up a small set of
+Kenyon cells, and the more things there are, the more those sets overlap. Past some point,
+the fly starts answering questions it was never told about. On test flies it never saw
+during tuning, with 20% of facts changed partway through:
+
+| model | things taught | answers right | taught facts it answers | never-taught questions it answers anyway |
+|---|---|---|---|---|
+| rate | 40 | 100% | 100% | 0.2% |
+| rate | 80 | 100% | 96% | 2.1% |
+| rate | 160 | 99.7% (worst fly 98.8%) | 82% | 11% |
+| spiking | 40 | 100% | 80% | 0.4% |
+| spiking | 80 | 100% | 76% | 5.8% |
+
+So a conversation about **a few dozen things** works well. The spiking fly says `hm` more
+often: about a fifth of the facts it was taught come back as "not sure" rather than wrong.
 
 ## 3. Part two: the fly's trip
 

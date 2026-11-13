@@ -40,7 +40,7 @@ lang:                      # the Zumi lexicon (docs/zumi-guide.md); words are th
     n_ask: 1               # sniffs per question, MBON rates summed (4 tried: no better than w_kc_mbon_mv 2.0)
     n_teach: 5             # dopamine pairings per taught property; 1, 3, 5 tried on selection seeds 10-19 (ADR 0011)
     w_kc_mbon_mv: 2.0      # memory fly only (spiking): a single noun drives few KCs (~6%), so 1.0 mV gave ~5 Hz MBONs
-    min_confidence: {rate: 0.0, spiking: 0.0}  # interactive / web; set from phase6_zumi2_memory.yaml's run
+    min_confidence: {rate: 0.2, spiking: 0.3}  # chosen on seeds 10-19 (results/20261114-002847_phase6_zumi2_memory_s0)
   replies: {"yes": ya, "no": na, unsure: hm, ok: o, huh: e}  # quoted: YAML reads bare yes/no as booleans
   min_confidence: {rate: 0.0, spiking: 0.0}  # interactive / web: thresholds chosen on seeds 10-19 (results/20261113-204727_phase6_zumi_s0)
   conf_grid: [0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]

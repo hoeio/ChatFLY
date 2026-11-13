@@ -55,6 +55,7 @@ Each phase must pass its acceptance criteria before the next one begins. If it d
 
 - A tiny regular language (`docs/zumi-guide.md`) whose meaning is a world the fly tracks across conversation turns in its loop
 - **Acceptance criteria (ADR 0010):** answered accuracy ≥ 0.99 on every test seed (rate and spiking) in random grammatical conversations, threshold chosen on held-out seeds; the teacher-shuffle control behind the same interface at chance; the no-KC control reported
+- **Zumi 2 (ADR 0011):** the fly learns properties of any word during the conversation. Criteria: on every test seed, answered accuracy ≥ 0.99 and ≤ 5% of never-taught questions answered; capacity = the most things taught that pass; thresholds chosen on held-out seeds; no-KC and teacher-shuffle controls
 
 ## Note on estimated cost
 

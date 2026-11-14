@@ -10,6 +10,7 @@ workers: 10
 capacity:
   vocab_sizes: [112]
   codings: [k2n20]
+  conds:                              # chosen on seeds 10-19 (ADR 0013, 8a-3)
     - {n_pn: 150, pn_active_frac: 0.15, n_kc: 16000, kc_theta: 850, balance: state}
   controls: [no_kc, shuffled]
   n_messages: 500

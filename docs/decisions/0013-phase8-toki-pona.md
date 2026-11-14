@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; 8c in progress; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -363,6 +363,28 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
 - **What it shows:**
   - The tokenizer's word → class step can be done by a fly, with balanced teaching and a single-word threshold.
   - The KC layer is not what does it. The class labels still come from the dictionary.
+
+## Decisions (8c: memory for noun phrases, H3; written before the run)
+
+- **Memory fly:** Zumi 2's (`zumi.Memory`: 5 pairings per fact, one sniff per question, confidence threshold 0.2).
+  - Its properties are 4 Toki Pona predicate words, each a yes/no output pair.
+  - A phrase smells like the union (PN max) of its words' patterns, like a mixture of odors. This is the interface rule. Word order is not in the smell, so "jan pona" and "pona jan" are the same smell (a known limit, not tested).
+- **Facts** (`tokipona.phrase_sets`): a fresh fly per level, 40 phrases per level, 2 of the 4 predicates each with a random yes/no (80 facts).
+  - Level 0: 40 bare words.
+  - Level 1: 10 heads × 4 shared modifiers. Every modifier is used with every head, so a phrase's value is not the sum of its words' values; a conjunction is needed.
+  - Level 2: 10 heads × 2 × 2 shared modifiers.
+  - Never-taught probes: unused words (level 0), or the taught heads with a never-used modifier.
+- **Measure:** correct = answered with confidence ≥ 0.2 and right, over all 80 facts. Coverage and the probes' answered rate are reported.
+- **Check on selection seed 10:** Zumi 2's KC setting (2000 KCs, threshold 450) gives level 0 1.000, but level 1 0.487 and level 2 0.400 (no KC layer: 0.575 / 0.463 / 0.525). Unions of 2–3 words drive more KCs (the 8a interference). So the KC setting is chosen.
+- **Conditions,** in tie order: (2000, 450), (2000, 650), (16000, 650), (16000, 850).
+- **Selection** on seeds 10–14: the highest mean level-1 correct.
+- **Gate** (test seeds 100–104):
+  - level-1 correct ≥ 0.95 on every seed;
+  - mean level-1 correct ≤ 0.80 for each control (no KC layer, shuffled teacher).
+- **H3 reading:**
+  - Supported if the gate passes and level 2 is below level 1, as 7b predicts.
+  - Rejected if level 1 fails, or the no-KC control does as well.
+  - If level 2 also reaches 0.95, the predicted two-modifier limit is not seen.
 
 ## Consequences
 

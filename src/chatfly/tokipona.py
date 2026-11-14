@@ -452,3 +452,91 @@ def exp_classfly(cfg: dict, seed: int) -> dict:
             log.info("%s summary %s", kind, rows[-1])
         out.append({"simulator": kind, "chosen": best, "select_scores": score, "rows": rows, "runs": res, "select": sel})
     return {"classfly": out}
+
+
+# ---- 8c: memory for noun phrases (H3) ----
+def phrase_memory(kind, cfg, seed, props_words, control=None):
+    """Zumi 2's memory fly (zumi.Memory, unchanged settings) whose properties are Toki Pona
+    predicate words, each a yes/no output pair. A phrase smells like the union (PN max) of its
+    words' patterns, as a mixture of odors: the interface rule. Word order is not in the smell."""
+    from chatfly.zumi import Memory
+
+    c = copy.deepcopy(cfg)
+    c["lang"] = {**c["lang"], "props": [{p: p, f"{p}_ala": f"not {p}"} for p in props_words]}
+    m = Memory(kind, c, seed, {"no_kc": "no_kc", "shuffled": "shuffled_teacher"}.get(control))
+    word_pattern = m.pattern
+    m.pattern = lambda phrase: np.max([word_pattern(w) for w in phrase.split()], axis=0)
+    return m
+
+
+def phrase_sets(words, mc, rng):
+    """Per level, the taught phrases and never-taught phrases made of the same words.
+    Level 0: bare heads. Level 1: every head x every modifier of a shared pool (so the value of
+    "head mod" is not a sum of word values: a conjunction is needed). Level 2: head x pool A x pool B."""
+    rest = [str(w) for w in rng.permutation([w for w in words if w not in BARE])]
+    props, pool = rest[-mc["n_props"]:], rest[:-mc["n_props"]]
+    nh, na, nb, nu = mc["n_heads"], mc["n_mods"], mc["n_mods_b"], mc["n_unknown"]
+    h, pa, pa2, pb = pool[:nh], pool[nh:nh + na + 1], pool[nh:nh + 2], pool[nh + 2:nh + 3 + nb]
+    return props, {
+        0: (pool[:nh * na], pool[nh * na:nh * na + nu]),
+        1: ([f"{x} {a}" for x in h for a in pa[:na]], [f"{x} {pa[na]}" for x in h]),
+        2: ([f"{x} {a} {b}" for x in h for a in pa2 for b in pb[:nb]], [f"{x} {a} {pb[nb]}" for x in h for a in pa2]),
+    }
+
+
+def _mjob(args):
+    kind, cfg, seed, level, control, cond = args
+    mc, thr = cfg["phrase_memory"], cfg["phrase_memory"]["threshold"]
+    cfg = copy.deepcopy(cfg)
+    cfg["mb"]["n_kc"], cfg["rate"]["kc_theta"] = cond["n_kc"], cond["kc_theta"]
+    rng = np.random.default_rng([seed, 8, 11])
+    props, sets = phrase_sets(words_for(cfg["phrase_memory"]["vocab"], seed), mc, rng)
+    taught, unknown = sets[level]
+    m = phrase_memory(kind, cfg, seed, props, control)
+    truth = {}
+    for ph in taught:
+        for i in rng.choice(len(props), mc["props_per_phrase"], replace=False):
+            v = int(rng.integers(2))
+            truth[(ph, int(i))] = v
+    order = list(truth)
+    for j in rng.permutation(len(order)):
+        (ph, i) = order[j]
+        m.teach(ph, list(m.prop)[2 * i + truth[(ph, i)]])
+    res = [m.ask(ph, i) for ph, i in order]
+    correct = [s == truth[k] and c >= thr for k, (s, c) in zip(order, res)]
+    answered = [s is not None and c >= thr for s, c in res]
+    unk = [m.ask(ph, i) for ph in unknown for i in range(len(props))]
+    out = {"seed": seed, "level": level, "control": control, "cond": cond, "n_taught": len(taught),
+           "correct": float(np.mean(correct)), "coverage": float(np.mean(answered)),
+           "answered_acc": float(np.sum(correct) / max(1, np.sum(answered))),
+           "unknown_answered": float(np.mean([s is not None and c >= thr for s, c in unk]))}
+    log.info("%s seed %d level %d %s: %s", kind, seed, level, control, {k: round(v, 3) for k, v in out.items()
+                                                                       if isinstance(v, float)})
+    return out
+
+
+def exp_phrase_memory(cfg: dict, seed: int) -> dict:
+    """8c: the memory fly's KC setting is chosen on select seeds (mean level-1 correct, ties to
+    the listed order); then phrases with 0, 1, 2 modifiers, each taught to a fresh fly, and controls."""
+    from chatfly.zumi3 import merged
+
+    cfg, out = merged(cfg), []
+    mc = cfg["phrase_memory"]
+    for kind in cfg["simulators"]:
+        with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
+            sel = list(ex.map(_mjob, [(kind, cfg, s, 1, None, c) for c in mc["conds"] for s in cfg["select_seeds"]]))
+        score = [float(np.mean([r["correct"] for r in sel if r["cond"] == c])) for c in mc["conds"]]
+        best = mc["conds"][max(range(len(score)), key=lambda i: (round(score[i], 3), -i))]
+        log.info("%s select scores %s -> %s", kind, score, best)
+        jobs = [(kind, cfg, s, lv, ctl, best) for lv in mc["levels"] for ctl in [None] + mc["controls"] for s in cfg["seeds"]]
+        with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
+            res = list(ex.map(_mjob, jobs))
+        rows = []
+        for lv in mc["levels"]:
+            for ctl in [None] + mc["controls"]:
+                rs = [r for r in res if r["level"] == lv and r["control"] == ctl]
+                rows.append({"level": lv, "control": str(ctl), **{k: [float(np.mean([r[k] for r in rs])),
+                             float(np.min([r[k] for r in rs]))] for k in ("correct", "coverage", "answered_acc", "unknown_answered")}})
+                log.info("%s summary %s", kind, rows[-1])
+        out.append({"simulator": kind, "chosen": best, "select_scores": score, "rows": rows, "runs": res, "select": sel})
+    return {"phrase_memory": out}

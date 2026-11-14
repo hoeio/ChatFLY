@@ -167,6 +167,26 @@ function translate(said) {  // the fly's words in English, for the reader only
 
 function render(out) {
   const m = el("div", "msg fly");
+  if (info.mode === "tokipona") {
+    if (out.unknown_words.length) m.append(el("span", "badge b-ref", "?"),
+      el("span", "gloss", " not in the fly's vocabulary: " + out.unknown_words.join(", ")));
+    else if (out.learned) m.append(el("span", "badge b-yes", "learned"));
+    else for (const w of (out.said.length ? out.said : ["(silent)"]))
+      m.append(el("span", "badge " + (w === "?" ? "b-ref" : w === "ala" ? "b-no" : "b-yes"), w));
+    if (out.trace.length) {
+      const t = el("div", "trace");
+      t.append(el("span", "st", "S0"));
+      for (const [w, k, st, role] of out.trace) {
+        t.append(el("span", "tok", "→" + w + "→"));
+        const s = el("span", "st" + (st === "X" ? " bad" : ""), st);
+        s.title = "class fly: " + (k || "?") + " · role fly: " + (role || "?");
+        t.append(s);
+      }
+      m.append(t);
+    }
+    add(m);
+    return;
+  }
   if (info.mode === "zumi3") {
     for (const [w, p] of out.said) {
       const b = el("span", w === "." ? "gloss" : "badge " + ({e: "b-ref", hm: "b-unc", na: "b-no"}[w] || "b-yes"), w);
@@ -254,7 +274,20 @@ $("f").addEventListener("submit", (e) => {
 
 fetch("/info").then((r) => r.json()).then((i) => {
   info = i;
-  if (i.mode !== "parity") {
+  if (i.mode === "tokipona") {
+    document.title = "Toki Pona demo";
+    document.querySelector("h1").textContent = "Toki Pona";
+    $("sub").textContent = "Talk to eight simulated fly mushroom bodies in a small subset of Toki Pona. " +
+      "Tell them facts (\"S li P\", \"S li P ala\", \"S li P e O\"), then ask (\"S li P anu seme?\", " +
+      "\"S li P e seme?\"). They learn as you talk. A computational model (synthetic wiring), not a living fly.";
+    $("q").placeholder = i.examples[0];
+    $("q").setAttribute("aria-label", "Your Toki Pona sentence");
+    $("send").textContent = "Say";
+    $("legend-parity").hidden = true;
+    $("meta").textContent = `simulator: ${i.sim} · Phase 8h-4 · words this fly knows: ` +
+      Object.entries(i.lexicon).map(([k, v]) => `${k}: ${v.join(", ")}`).join(" · ");
+    EXAMPLES.tokipona = i.examples;
+  } else if (i.mode !== "parity") {
     document.title = "Zumi demo";
     document.querySelector("h1").textContent = "Zumi";
     $("sub").textContent = "Talk to a simulated fly mushroom body in Zumi. Tell it about anything " +

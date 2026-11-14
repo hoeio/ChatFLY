@@ -1,4 +1,4 @@
-# ChatFLY: progress summary (2026-11-14)
+# ChatFLY: progress summary (2026-11-15)
 
 "The fly" is a digital fly: a computational model of the fly mushroom body (MB), not a living
 fly. Every number below is from held-out test seeds unless noted. The details are in
@@ -17,6 +17,7 @@ fly. Every number below is from held-out test seeds unless noted. The details ar
 | Phase 6 | Zumi, a 10-word language; the fly tracks its place on a ring of three places | **pass** on new test seeds. 1,115/1,115 questions right per model; shuffled teacher at chance |
 | Zumi 2 | talk about anything: the fly learns facts during the conversation | **pass** up to 80 things (rate) and 40 (spiking). Without the KC layer the same rule fails at 40 |
 | Phase 7 | the fly says its own Zumi replies, word by word ("GPT-2 level in Zumi") | 7a pass; **7b–7f gates not passed**. Closed by the user. Results below |
+| Phase 8 | a subset of Toki Pona (112 content words): eight flies hold a whole conversation | **pass** (8h-4), closed by the user. Hypotheses H1–H6 supported. Results below |
 
 ## Phase 7 in one table (7f, test seeds 70–74)
 
@@ -32,6 +33,25 @@ The fly's replies are sampled from its MBON rates. They are right far more often
 baselines', which cannot remember across turns. As a probability model it is worse than a
 GRU, and two seeds fall below 0.95 on memory under load.
 
+## Phase 8 in one table (8h-4, test seeds 205–214, rate model, synthetic wiring)
+
+The conversation is 300 turns: yes/no and object facts (with changes of mind), yes/no and "what"
+questions, and subjects never mentioned. Eight flies: class, grammar, role, two routed memories
+(yes/no, object), speaker, cue pointer.
+
+| | exact reply, mean (min) |
+|---|---|
+| **flies** | **0.997 (0.986)** |
+| memories without KC layer | 0.480 |
+| speaker without KC layer | 0.000 |
+| cue pointer without KC layer | 0.167 |
+| role fly without KC layer | 0.997 (a lookup: KC layer not needed) |
+
+What made it work:
+- **A compact output code:** each word is 2 of 20 MBON groups, which says 112 words as well as one group per word.
+- **Sparse KC codes:** 16000 KCs, all five claws needed.
+- **Teaching schedules:** rare contexts taught as often as the majority, and **rehearsal**, i.e. re-teaching what the fly gets wrong, which repaired every single-context failure seen.
+
 ## What the evidence supports
 
 1. **A mushroom-body loop learns small finite-state machines.** Parity and the three-place
@@ -41,6 +61,9 @@ GRU, and two seeds fall below 0.95 on memory under load.
    Phase 7 (0.55 vs 0.95).
 3. **A system of flies can hold a Zumi conversation in its own words.** Grammar, content and
    every reply word come from flies (Phase 7).
+4. **The same approach scales to a Toki Pona subset.** About five times Zumi's vocabulary,
+   noun phrases with a modifier, and objects. KC conjunctions keep phrases apart (8c: 0.990, no KC
+   layer 0.500). A 2-of-20 MBON code fits the real fly's 35 MBON types (Phase 8).
 
 ## What it does not support
 
@@ -51,6 +74,10 @@ GRU, and two seeds fall below 0.95 on memory under load.
 - **No general language ability.** Zumi has 20+ words and a regular grammar; replies need cue
   lists, pronoun resolution and a sharp decoder (temperature 0.1) from the interface.
 - **Not GPT-2 level** by the agreed criteria: perplexity is above a small GRU's.
+- **Routing is still needed in Phase 8.** Three tries to replace the memories' predicate routing
+  with a KC conjunction failed (8d-2, 8e-2, 8i). Without routing, known facts and unknown subjects
+  cannot both be right.
+- **Phase 8 is rate model on synthetic wiring only.**
 
 ## Glue that remains (designer rules, not learned)
 
@@ -62,17 +89,28 @@ GRU, and two seeds fall below 0.95 on memory under load.
 - absorbing "lost" and "dead" states;
 - the sampling temperature.
 
+In Phase 8:
+- **Replaced by flies:**
+  - the cue pointer (its KC layer is needed);
+  - word classes and roles (lookups: KC layer not needed).
+- **Still glue:**
+  - tokenizing;
+  - predicate routing;
+  - the memories' confidence thresholds and reply plan. A speaker deciding from the memory's odor works on most seeds (8g-2) but not reliably on all (8h-2, 8h-3);
+  - teaching schedules.
+
 ## Try it
 
 - Published demo (rate model in the browser; the fly speaks Zumi 3): https://claude.ai/artifact/5aDVbagQmhxcNkvmW1fdKt
 - Guidebook: https://claude.ai/artifact/LxR9CQSG3n6uf4cUb8EduG (also `docs/zumi-guide.md`)
 - Local demos:
   - `python -m chatfly.web configs/phase7f_zumi3.yaml` (Zumi 3, rate);
-  - `python -m chatfly.web configs/phase6_zumi.yaml --sim spiking` (Zumi 2, spiking).
+  - `python -m chatfly.web configs/phase6_zumi.yaml --sim spiking` (Zumi 2, spiking);
+  - `python -m chatfly.web configs/phase8h4_chat.yaml` (Toki Pona, 8h-4, rate). In the terminal: `python -m chatfly.tokipona_chat configs/phase8h4_chat.yaml`. The page lists the words this seed's flies know (`--seed N` picks another lexicon).
 
 ## Open directions (not started)
 
 - Calibrated speaker outputs, so that perplexity can compete without a sharp decoder.
-- Removing glue: learned routing, or a speaker without cue lists.
-- A spiking version of Phase 7.
+- Removing glue: learned routing (three failed tries in Phase 8), a reliable reply decision without thresholds.
+- A spiking version of Phase 7 or Phase 8, and Phase 8 on FlyWire wiring.
 - A task where the real connectome could matter (Phase 3 found none so far).

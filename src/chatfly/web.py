@@ -3,6 +3,7 @@
 python -m chatfly.web configs/phase5_chat.yaml [--sim rate|spiking] [--seed N] [--port 8000]
 python -m chatfly.web configs/phase6_zumi.yaml  (Zumi, ADR 0010; picked when the config has `lang`)
 python -m chatfly.web configs/phase7f_zumi3.yaml (Zumi 3, ADR 0012: the fly says its own reply; rate only)
+python -m chatfly.web configs/phase8h4_chat.yaml (Toki Pona, ADR 0013 8h-4: eight flies; rate only)
 
 Serves one page on 127.0.0.1 and POST /ask {"text": ...} -> the turn's result. Answers
 come from a fly trained at startup; nothing is canned. Requests are handled one at a time
@@ -78,6 +79,17 @@ def zumi3_app(a, cfg):
     return info, lx["web"], lambda t: len(zumi.parse(t, lx).get("moves", [])), ask
 
 
+def tokipona_app(a, cfg):
+    """Phase 8h-4 (ADR 0013): the whole Toki Pona pipeline; one conversation for every visitor."""
+    from chatfly.tokipona_chat import demo
+
+    if a.sim != "rate":
+        raise SystemExit("The Toki Pona demo runs the rate model only (Phase 8 was run in it).")
+    lex, examples, ask = demo(cfg, a.seed)
+    info = {"mode": "tokipona", "sim": a.sim, "lexicon": lex, "examples": examples}
+    return info, cfg["lang"]["web"], lambda t: len(t.split()), ask
+
+
 def make_handler(info, lim, n_tokens, ask):
     page = files("chatfly").joinpath("web.html").read_bytes()
 
@@ -125,7 +137,9 @@ def make_handler(info, lim, n_tokens, ask):
 
 def main(argv=None):
     a, cfg, fly = load(argv, "Serve the chat demo page on localhost.")
-    if "zumi3" in cfg:
+    if "chat8d" in cfg:
+        app = tokipona_app(a, cfg)
+    elif "zumi3" in cfg:
         app = zumi3_app(a, cfg)
     else:
         app = zumi_app(fly, cfg, a) if "lang" in cfg else chat_app(fly, cfg["chat"], a.sim)

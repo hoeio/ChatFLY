@@ -216,7 +216,7 @@ def load(argv, desc):
     a = p.parse_args(argv)
     cfg = yaml.safe_load(a.config.read_text())
     print("Training the fly...")
-    if "zumi3" in cfg:  # Phase 7f: Talker3 trains its own flies (chatfly.web)
+    if "zumi3" in cfg or "chat8d" in cfg:  # Phase 7f / 8: the pipeline trains its own flies
         from chatfly.zumi3 import merged
 
         return a, merged(cfg), None

@@ -227,10 +227,12 @@ class Chat:
         """Run the class and grammar flies; roles from the states. Returns (final state,
         subject words, predicate word, object word)."""
         s, subj, pred, obj = "S0", [], None, None
+        self.trace = []  # (word, class, state, role) per word, for the demo
         for w in words:
             k = self.cls(w)
             nxt = "X" if k is None else self.gram.step(s, k)
             role = role_of(nxt) if self.role is None else self.role.decide((nxt,))
+            self.trace.append((w, k, nxt, role))
             if role == "subj":
                 subj.append(w)
             elif role == "pred":
@@ -576,3 +578,57 @@ class TokenFly:
         if self.cache is not None:
             self.cache[toks] = out
         return out
+
+
+# ---- demo: talk to the 8h-4 pipeline (terminal: main; browser: chatfly.web) ----
+def demo(cfg, seed):
+    """Train the whole pipeline once; returns (lexicon, examples, ask). ask(text) -> one turn.
+    Words outside the fly's vocabulary are refused before any fly runs (tokenizer glue)."""
+    import re
+
+    ch = Chat("rate", cfg, seed)
+    lex = {"subjects": [" ".join(s) for s in ch.subjects], "subjects it cannot say (always mi sona ala)": [" ".join(s) for s in ch.unknown],
+           "yes/no predicates": ch.preds, "object predicates": ch.opreds, "objects": ch.objects}
+    (h, m), u, p, op, o = ch.subjects[0], " ".join(ch.unknown[0]), ch.preds[0], ch.opreds[0], ch.objects[0]
+    examples = [f"{h} {m} li {p}", f"{h} {m} li {p} anu seme?", f"{h} {m} li {op} e {o}",
+                f"{h} {m} li {op} e seme?", f"{u} li {p} anu seme?", f"{h} {m} li {p} ala"]
+
+    def ask(text):
+        words = re.findall(r"[a-z]+", text.lower())
+        unknown = [w for w in words if w not in ch.cls.words]
+        if not words or unknown:
+            return {"said": ["?"], "unknown_words": unknown, "trace": [], "learned": False}
+        got = ch.hear(words)
+        read = [[w, k, st, r] for w, k, st, r in ch.trace]
+        return {"said": [] if got is None else got, "learned": got is None, "trace": read, "unknown_words": []}
+
+    return lex, examples, ask
+
+
+def main(argv=None):
+    from chatfly.chat import load
+
+    a, cfg, _ = load(argv, "Talk Toki Pona with the Phase 8 flies in the terminal (rate model).")
+    lex, examples, ask = demo(cfg, a.seed)
+    print("The fly knows these words (this seed). Tell it facts, then ask. Empty line quits.")
+    for k, v in lex.items():
+        print(f"  {k}: {', '.join(v)}")
+    print("  examples: " + " | ".join(examples))
+    while True:
+        try:
+            text = input("you> ").strip()
+        except EOFError:
+            break
+        if not text:
+            break
+        out = ask(text)
+        if out["unknown_words"]:
+            print(f"fly> ?   (not in its vocabulary: {', '.join(out['unknown_words'])})")
+        elif out["learned"]:
+            print("fly> (learned)")
+        else:
+            print("fly> " + (" ".join(out["said"]) or "(silent)"))
+
+
+if __name__ == "__main__":
+    main()

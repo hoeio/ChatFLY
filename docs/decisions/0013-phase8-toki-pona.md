@@ -173,6 +173,20 @@ Controls, every condition: no KC layer steps 0.26–0.35, sentences 0.00; shuffl
 - **Selection:** the highest mean sentence exact. Ties (within 0.005) go to the simpler schedule (`none`, then `state`, then `token`).
 - **Gate:** the same as 8a, on test seeds 80–84 (`configs/phase8a3_capacity.yaml`; the 340-PN conditions of 8a-2 never ran on them).
 
+#### 8a-3 selection result (`results/20261114-160427_phase8a3_capacity_select_s0`)
+
+Seeds 10–19, V = 112, `k2n20`, 150 PNs, 16000 KCs, threshold 850:
+
+| balance | step, mean (min) | sentence, mean | per seed |
+|---|---|---|---|
+| `none` | 0.998 (0.994) | 0.751 | 1.00 0.51 0.99 0.53 0.53 0.98 1.00 1.00 0.49 0.48 |
+| **`state`** | **0.998 (0.996)** | **0.990** | 1.00 0.98 1.00 0.98 1.00 0.97 1.00 1.00 0.98 0.99 |
+| `token` | 0.984 (0.972) | 0.940 | 0.94 0.91 0.95 0.96 0.92 0.89 1.00 0.95 0.94 0.94 |
+
+Controls with every schedule: no KC layer steps 0.21–0.28, sentences 0.00; shuffled steps ≤ 0.01, sentences 0.00.
+
+- **Chosen:** `state`. The test config keeps only it.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

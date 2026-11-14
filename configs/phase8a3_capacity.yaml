@@ -10,9 +10,6 @@ workers: 10
 capacity:
   vocab_sizes: [112]
   codings: [k2n20]
-  conds:                              # 8a's chosen condition; balance: none, state, token (tokipona.repeats)
-    - {n_pn: 150, pn_active_frac: 0.15, n_kc: 16000, kc_theta: 850, balance: none}
     - {n_pn: 150, pn_active_frac: 0.15, n_kc: 16000, kc_theta: 850, balance: state}
-    - {n_pn: 150, pn_active_frac: 0.15, n_kc: 16000, kc_theta: 850, balance: token}
   controls: [no_kc, shuffled]
   n_messages: 500

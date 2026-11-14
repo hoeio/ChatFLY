@@ -21,6 +21,7 @@ import yaml
 from chatfly.chat import exp_chat
 from chatfly.conditioning import exp_conditioning, token_patterns
 from chatfly.fsm import exp_fsm_sweep, exp_multi_fly
+from chatfly.grammar import exp_grammar
 from chatfly.parity import exp_parity, exp_parity_table
 from chatfly.sim import SIMULATORS
 from chatfly.speak import exp_speak_baselines, exp_speak_fly
@@ -100,7 +101,7 @@ EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning, "parity": e
                "parity_table": exp_parity_table, "fsm_sweep": exp_fsm_sweep,
                "multi_fly": exp_multi_fly, "chat": exp_chat, "zumi": exp_zumi,
                "zumi_memory": exp_zumi_memory, "speak_baselines": exp_speak_baselines,
-               "speak_fly": exp_speak_fly}
+               "speak_fly": exp_speak_fly, "grammar": exp_grammar}
 
 
 def main(argv=None) -> Path:

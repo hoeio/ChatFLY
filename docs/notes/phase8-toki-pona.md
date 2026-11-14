@@ -135,3 +135,7 @@ The yes/no memory's odor goes to the speaker, which itself chooses the answer, `
 ## 8h: role and pointer flies — gate not passed
 
 A role fly (reached state -> role) and a pointer fly ((cue, said word) on separate PN patterns -> next/stay) replace two rules. Test seeds 175–184: 0.978, min 0.837 (seed 178). Without the pointer fly's KC layer 0.157; without the role fly's, the same 0.978 (a lookup, as 8b-3). Seed 178 fails the same way with both rules restored: the speaker says "mi sona open" for an unknown object, a context 8g-2's rehearsal misses because it checks against the mean of a class that mixes known and unknown object odors.
+
+## 8h-2: unknown-object odors split — gate not passed
+
+With the unknown-object reply taught on its own odors, the 8h failure is gone (unknown subjects 0.997), but seed 187 falls to 0.909: yes/no 0.812. The yes/no memory's odor under load is weak (e.g. yes 0.39 / doubt 0.61) and the speaker reads the wrong polarity, where the old threshold would have answered right. Pointer fly without KCs 0.177; role fly without KCs unchanged.

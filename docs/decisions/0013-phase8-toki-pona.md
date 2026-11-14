@@ -747,6 +747,25 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - yes/no exact ≤ 0.80 for `memory_no_kc`, `speaker_no_kc` and `odor_off`;
   - reply exact ≤ 0.80 for `pointer_no_kc`.
 
+#### 8h-2 result (`results/20261114-233619_phase8h2_chat_s0`): gate not passed
+
+- **Test** (seeds 185–194): reply exact mean 0.987, min **0.909 (seed 187**, yes/no 0.812). The other nine seeds are ≥ 0.98.
+  - objects 0.998;
+  - unknown subjects 0.997 (the 8h failure mode is gone).
+- **Controls:**
+  - yes/no exact: `memory_no_kc` 0.328, `speaker_no_kc` 0.000, `odor_off` 0.367;
+  - reply exact: `pointer_no_kc` 0.177;
+  - `role_no_kc` (reported only): 0.987, identical to the full run.
+- **Verdict:** the first criterion fails on seed 187.
+- **Diagnosis** (after the gate, seed 187, 76 yes/no facts after 100 statements):
+  - 65 right;
+  - 8 wrong polarity (`ala` said or dropped), 2 "mi sona ala", 1 broken frame. In all 11 the old glue decision (threshold 0.2) would have been right.
+  - The yes/no memory's odor under load is weak in these cases (e.g. yes 0.39, doubt 0.61), and the speaker misreads it. This is 8g-2's graded-odor decision, not the role or pointer fly.
+  - Across the 30 fresh test seeds of 8g-2, 8h and 8h-2, yes/no exact is below 0.95 on 2 (178: 0.934, 187: 0.812).
+- **Reading:**
+  - The pointer fly needs its KC layer and works on every seed.
+  - The odor-based yes/no decision is the weak part. It is right on most seeds, but under load it is less reliable than the threshold it replaced.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

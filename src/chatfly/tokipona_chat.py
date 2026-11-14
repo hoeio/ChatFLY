@@ -203,6 +203,19 @@ class Chat:
             log.info("seed %d speaker rehearsal: %d of %d contexts wrong", seed, len(wrong), len(tab))
             for j in self.sp.rng.permutation(wrong):
                 teach(j)
+        self.role = self.pointer = None
+        if "role_fly" in dc:  # 8h: the role of each word read off the reached state by a fly
+            self.role = TokenFly(kind, cfg, seed, g["states"], ROLES, [((st,), role_of(st)) for st in g["states"]],
+                                 dc["role_fly"], 1, "no_kc" if "role_no_kc" in controls else None)
+        if "pointer_fly" in dc:  # 8h: whether the word just said uses up the cue (cue and word smelled together)
+            pairs = sorted({(cue, t) for _, cue, t, _ in tab if cue != NONE and t != EOS})
+            # cue and said word on separate PN patterns: a same-word union would be a PN subset of every
+            # different pair holding that word, and the subset context loses (as in 8g)
+            words = [w for w in self.sp.outs if w != EOS]  # every word the speaker can say
+            toks = [f"c:{w}" for w in words] + [f"s:{w}" for w in words]
+            self.pointer = TokenFly(kind, cfg, seed, toks, ("next", "stay"),
+                                    [((f"c:{a}", f"s:{b}"), "next" if a == b else "stay") for a, b in pairs],
+                                    dc["pointer_fly"], 2, "no_kc" if "pointer_no_kc" in controls else None)
 
     def read(self, words):
         """Run the class and grammar flies; roles from the states. Returns (final state,
@@ -211,11 +224,12 @@ class Chat:
         for w in words:
             k = self.cls(w)
             nxt = "X" if k is None else self.gram.step(s, k)
-            if nxt in ("S1", "S2", "S3", "MI"):
+            role = role_of(nxt) if self.role is None else self.role.decide((nxt,))
+            if role == "subj":
                 subj.append(w)
-            elif nxt == "P":
+            elif role == "pred":
                 pred = w
-            elif nxt == "O":
+            elif role == "obj":
                 obj = w
             s = nxt
         return s, subj, pred, obj
@@ -294,7 +308,8 @@ class Chat:
             out.append(w)
             c = self.cls(w)
             state = "X" if c is None else self.gram.step(state, c)
-            k += k < len(cues) and cues[k] == w
+            if k < len(cues):
+                k += (cues[k] == w) if self.pointer is None else (self.pointer.decide((f"c:{cues[k]}", f"s:{w}")) == "next")
         return out
 
 
@@ -494,3 +509,61 @@ class ObjectMemory:
         if o[0] <= 0 or (o[0] - o[1]) / o[0] < self.thr:
             return None
         return self.objects[int(np.argmax(score))]
+
+
+# ---- 8h: role assignment and the cue pointer as flies ----
+ROLES = ("subj", "pred", "obj", "none")
+
+
+def role_of(state):
+    """8h teacher labels: the role of the word that led to this state (the old read() rule)."""
+    return "subj" if state in ("S1", "S2", "S3", "MI") else {"P": "pred", "O": "obj"}.get(state, "none")
+
+
+class TokenFly:
+    """8h: smells the union (PN max) of one or more tokens and says a label (one MBON group per
+    label), taught from a table of (tokens, label), every entry once per epoch, then rehearsal."""
+
+    def __init__(self, kind, cfg, seed, tokens, labels, table, tf, salt, control=None):
+        from chatfly.conditioning import token_patterns
+        from chatfly.fsm import PNDirect
+        from chatfly.parity import dan_for
+        from chatfly.sim import SIMULATORS
+
+        rs, c = cfg["rng_streams"], copy.deepcopy(cfg)
+        self.labels = list(labels)
+        c["mb"]["compartments"], c["tokens"]["names"] = self.labels, [f"t:{t}" for t in tokens]
+        c["mb"]["n_kc"], c["rate"]["kc_theta"] = tf["n_kc"], tf["kc_theta"]
+        self.pats = token_patterns(c, np.random.default_rng([seed, 8, 20, salt]))
+        self.sim = SIMULATORS[kind](c, seed + (7 + salt) * rs["fly"], noise_seed=seed * rs["noise"] + 20 + salt)
+        if control == "no_kc":
+            self.sim = PNDirect(self.sim, c, len(self.labels), np.random.default_rng([seed, 8, 21, salt]), kind == "spiking")
+        rng, self.dur = np.random.default_rng([seed, 8, 22, salt]), c["protocol"]["duration_ms"]
+        self.cache = {} if kind == "rate" else None  # the rate model is deterministic
+        def teach(i):
+            toks, lab = table[i]
+            self.sim.present(self.stim(toks), self.dur, dan_for(self.labels.index(lab), len(self.labels)))
+        for _ in range(c["protocol"]["n_train"]):
+            for i in rng.permutation(len(table)):
+                teach(i)
+        for _ in range(tf.get("rehearse", 0)):
+            wrong = [i for i, (toks, lab) in enumerate(table) if self.decide(toks) != lab]
+            self.cache = {} if self.cache is not None else None
+            for i in rng.permutation(wrong):
+                teach(i)
+
+    def stim(self, toks):
+        return np.max([self.pats[f"t:{t}"] for t in toks], axis=0)
+
+    def decide(self, toks):
+        from chatfly.fsm import argmax_or_none
+
+        toks = tuple(toks)
+        if self.cache is not None and toks in self.cache:
+            return self.cache[toks]
+        r = group_rates(self.sim, self.sim.present(self.stim(toks), self.dur)["mbon"])
+        i = argmax_or_none(r)
+        out = None if i is None else self.labels[i]
+        if self.cache is not None:
+            self.cache[toks] = out
+        return out

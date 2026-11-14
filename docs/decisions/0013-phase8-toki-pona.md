@@ -693,6 +693,21 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
     - the practice session (teacher);
     - the object path's threshold and plan.
 
+## 8h: role assignment and the cue pointer as flies (the user agreed after 8g-2; written before the run)
+
+- **Glue removed:**
+  - **Roles:** `read()` no longer maps states to roles in code. A role fly smells the state the grammar fly reached and says the role of the word: subject, predicate, object or none. It is taught from the old rule's table (14 states), then one rehearsal round, at the single-token setting (2000 KCs, threshold 450, as the class fly). At 650, 13 of 14 states were right; at 16000 / 850, 4 of 14, with single tokens too sparse.
+  - **Cue pointer:** `speak()` no longer compares the said word with the cue. A pointer fly smells the cue and the said word together and says `next` or `stay`. It is taught on every (cue, word) pair of the speaker's table (75 on seed 10), then rehearsal.
+- **Interface for the pointer:** the cue (the plan) and the word just said come in on **separate PN patterns**, as two senses. With one pattern per word, the "same" pair is a single odor, a PN subset of every "different" pair holding the word, and it loses (65 of 75 at best). With separate patterns, 75 of 75 at 2000 KCs / 650 and at 16000 / 850; without KCs, 44 of 75. Whether to advance after `mi`, `sona` or `ala` depends on the cue (the object path's "mi sona ala" uses them as cues), so a conjunction is needed.
+- **Selection** (seeds 10–19, `configs/phase8h_chat.yaml`): the pointer fly at 2000 / 650 or 16000 / 850, mean reply exact, ties to the listed order. The role fly is fixed. Everything else is 8g-2's chosen setting.
+- **Test:** new seeds 175–184.
+- **Check on selection seed 10:** reply 0.980. `role_no_kc` 0.980, `pointer_no_kc` 0.075, `memory_no_kc` 0.333.
+- **Gate:**
+  - reply exact ≥ 0.95 on every test seed;
+  - yes/no exact ≤ 0.80 for `memory_no_kc`, `speaker_no_kc` and `odor_off`;
+  - reply exact ≤ 0.80 for `role_no_kc` and `pointer_no_kc` (8b-3's rule for a new fly).
+- **Prediction:** the role fly is a lookup on the state, and seed 10 shows no KC need. So `role_no_kc` will very likely be above 0.80, and the gate then fails formally on it, as 8b-3 did. That would read: the role glue can be a fly, but the KC layer adds nothing there.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

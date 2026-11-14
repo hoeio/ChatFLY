@@ -104,7 +104,7 @@ class Speaker:
             self.code = [list(sets[i]) for i in pick]
         c = copy.deepcopy(cfg)
         c["mb"]["compartments"], c["mb"]["n_kc"] = [str(i) for i in range(n)], n_kc
-        c["tokens"]["names"] = [f"s:{s}" for s in states] + [f"c:{w}" for w in list(words) + [NONE]] + [f"m:{i}" for i in range(4)]
+        c["tokens"]["names"] = [f"s:{s}" for s in states] + [f"c:{w}" for w in list(words) + [NONE]] + [f"m:{i}" for i in range(5)]
         c["tokens"]["pn_active_frac"], c["rate"]["kc_theta"] = sp["pn_active_frac"], sp["kc_theta"]
         c["mb"]["n_pn"] = sp.get("n_pn", c["mb"]["n_pn"])
         self.pats = token_patterns(c, np.random.default_rng(seed + rs["tokens"]))

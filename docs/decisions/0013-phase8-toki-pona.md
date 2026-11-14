@@ -659,6 +659,19 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - The yes/no memory gives `yes`/`no` at about 0.7, which the speaker reads, though below the glue pipeline (0.972 against 0.993 in 8f-2).
 - **Reading:** taking the reply decision away from the code works for the yes/no memory, but not yet at the glue's accuracy. It fails for the object memory, because a graded odor near 0.3 is below what the speaker's sparse KC code can see. The glue (confidence thresholds and reply branch) stays in the pipeline until the user decides.
 
+### 8g-2: the reply decision as a fly for the yes/no memory only (the user chose option 1 after 8g; written before the run)
+
+- **Change from 8g:** object questions go back to the glue: the object memory's threshold, and the plan (the object reply, or "mi sona ala" as cues). Yes/no questions keep 8g's design: no threshold, no branch; the speaker decides from the odor.
+- **Interface:**
+  - The object memory's odor still reaches the speaker (sure, plus its own fifth doubt channel). Otherwise object replies would be odor-free, and an odor-free context is a PN subset of the yes/no ones (8g).
+  - Its doubt is kept apart from the yes/no memory's doubt, so a known object (weak `sure`) does not smell like an unknown yes/no subject.
+  - In the table, object replies carry one class ("obj", known and unknown practice odors alike); "mi sona ala" for objects is taught on its own cues (`mi`, `sona`, `ala`).
+- **Selection** as in 8g (`configs/phase8g2_chat.yaml`). **Test:** new seeds 165–174.
+- **Check on selection seed 10:** reply 0.959, yes/no 0.893, objects 1.000. Without odor, yes/no 0.679; no-KC memory 0.643.
+- **Gate:**
+  - reply exact ≥ 0.95 on every test seed;
+  - for each control (`memory_no_kc`, `speaker_no_kc`, `odor_off`), mean **yes/no** exact ≤ 0.80. Overall reply exact no longer measures the fly's decision, since the object path is glue; on seed 10, `odor_off` is 0.803 overall.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

@@ -776,6 +776,28 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
 - **Decision rule, fixed now:** if the chosen setting's worst select seed is below 0.95, option 2 has failed, and option 1 follows on new seeds 205–214. Option 1 is the yes/no decision back to the threshold glue, keeping the role and pointer flies. Test seeds 195–204 are run in the same job and count as used either way.
 - **Test** (if the rule passes): seeds 195–204, with 8h-2's gate.
 
+#### 8h-3 result (`results/20261114-234051_phase8h3_chat_s0`): option 2 failed by the rule fixed before the run
+
+- **Selection** (seeds 10–29): worst seed 0.907 / 0.914 / 0.901 / 0.901, mean 0.981 / 0.980 / 0.980 / 0.983, in the listed order. 240 practice facts at 16000 KCs was chosen.
+  - Its worst select seed, 0.914, is below 0.95, so **option 2 has failed** and option 1 follows (8h-4).
+  - More practice load and twice the speaker KCs do not lift the worst seed.
+- **Test** (seeds 195–204, run in the same job, so they count as used): reply exact mean 0.982, min 0.945 (seed 198); yes/no 0.968 (min 0.880, seed 204). The 8h-2 gate would not have been passed either.
+- **Controls:**
+  - yes/no exact: `memory_no_kc` 0.118, `speaker_no_kc` 0.000, `odor_off` 0.244;
+  - reply exact: `pointer_no_kc` 0.186.
+- **Reading:** the odor-based yes/no decision is right on most seeds but has a tail of weak seeds (about 1 in 7 below 0.95 here) that these changes do not remove.
+
+### 8h-4: option 1, the yes/no decision back to the threshold (written before the run)
+
+- **Pipeline:** 8f-2's pipeline (thresholds and reply plan for both memories; the 8f odor-free speaker table, with state balance and rehearsal) plus 8h's role fly and pointer fly. The pointer fly is taught on every (cue, word) pair of that speaker table (`configs/phase8h4_chat.yaml`).
+- **Settings:** fixed, no selection. Role fly 2000 KCs / 450; pointer fly 2000 / 650; both with rehearse 1.
+- **Test:** new seeds 205–214.
+- **Gate:**
+  - reply exact ≥ 0.95 on every test seed;
+  - reply exact ≤ 0.80 for `memory_no_kc`, `speaker_no_kc` and `pointer_no_kc`;
+  - `role_no_kc` reported only (KC layer not needed, the user's decision).
+- **Check on selection seed 10:** reply 1.000; `pointer_no_kc` 0.177.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

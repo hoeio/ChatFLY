@@ -592,6 +592,16 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - Over the 15 test seeds of 8e, 8e-3 and 8f, the chosen setting is ≥ 0.96 on all 15, but 3 of them are seeds it was diagnosed on. A clean test of H6 needs seeds where the plain fly fails. The next step would be a larger fresh test set, about 20 seeds, so that about 4 failing seeds are expected.
   - Rehearsal is teacher glue: the teacher checks the fly's answers. It is the same kind as 8a-3's balance.
 
+### 8f-2: rehearsal on 20 fresh seeds (the user agreed after 8f; written before the run)
+
+- **Why:** 8f's test seeds had no failing context, so they could not test H6. The plain-fly failure rate so far is about 2 in 10 seeds, so 20 seeds should hold about 4 failing ones.
+- **Setting:** 8f's choice fixed, no selection: `rehearse` 1 for the speaker and the grammar fly (`configs/phase8f2_chat.yaml`). Test seeds 135–154.
+- **Gate:**
+  - reply exact ≥ 0.95 on every seed;
+  - mean ≤ 0.80 for `memory_no_kc` and `speaker_no_kc`;
+  - **H6:** on every seed where `no_rehearse` is below 0.95, rehearsal reaches ≥ 0.95.
+- If no seed fails without rehearsal, H6 is still untested, and that will be reported as such.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

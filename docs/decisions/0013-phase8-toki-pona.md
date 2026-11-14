@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) in progress, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -159,6 +159,19 @@ Controls, every condition: no KC layer steps 0.26–0.35, sentences 0.00; shuffl
 - **The hypothesis is rejected** by its own criterion: no 340-PN condition beats 150 PNs. The rule picks 150 PNs, which is 8a's tested condition, so no new test run is made.
 - **What the data say instead.** Every condition is bimodal: a seed gives about 1.0 or about 0.5, and which seeds fail changes with the condition. About 0.5 means one of the two end contexts ((PRED, `-`) or (OBJ, `-`)) is lost, and with it every sentence of that shape. This looks like the Phase 4 majority conflict (one EOS context against 112 contexts with the same state token), decided by chance in each network, not like crowding that more PNs would remove.
 - 8a-2 does not pass. The next step is the user's decision.
+
+### 8a-3: frequency-balanced teaching (decided by the user after 8a-2; written before any run)
+
+- **Hypothesis.** The lost end context is a majority conflict: (PRED, `-`) → EOS shares the PRED token with 112 contexts → `e`, and each is taught once per epoch, so the majority's depression wins in about half the networks. Teaching the rare context as often as the majority removes the conflict without new inputs or readouts.
+- **Rule** (`tokipona.repeats`, fixed before any run). Per epoch a context is taught r times. For each of its tokens, take the most common target among table contexts with that token, divided by the count of this context's target there; r is the largest ratio, rounded.
+  - `none`: r = 1 (8a).
+  - `state`: state tokens only. At V = 112, (PRED, `-`) gets 112 and everything else 1; 785 presentations per epoch instead of 674.
+  - `token`: state and cue tokens. Also (SUBJ, w) → `li` and (PRED, w) → `e` get 4 against the four (·, w) → w contexts; 1457 per epoch.
+  - This is a teaching schedule computed from the table, not an inference rule, so it adds no glue at run time. It does add presentations, so a gain could partly be more training; `none` with the same epochs is the reference.
+- **Conditions** (`configs/phase8a3_capacity_select.yaml`): 8a's chosen condition (150 PNs, density 0.15, 16000 KCs, threshold 850, `k2n20`, V = 112) with balance `none`, `state`, `token`. Controls (no KC layer, shuffled teacher) with the same schedule.
+- **Rejected if** neither `state` nor `token` beats `none` on mean sentence exact over seeds 10–19, or the chosen condition fails the gate.
+- **Selection:** the highest mean sentence exact. Ties (within 0.005) go to the simpler schedule (`none`, then `state`, then `token`).
+- **Gate:** the same as 8a, on test seeds 80–84 (`configs/phase8a3_capacity.yaml`; the 340-PN conditions of 8a-2 never ran on them).
 
 ## Consequences
 

@@ -74,6 +74,21 @@ def messages(words, n, seed):
              str(rng.choice(others)) if rng.random() < 0.5 else None) for _ in range(n)]
 
 
+def repeats(tab, by):
+    """8a-3: times each context is taught per epoch. For each token of the context (the state, or
+    with "token" also the cue), the most common target among contexts with that token, divided by
+    the count of this context's target there; the context takes its largest ratio (1 if by is "none")."""
+    if by == "none":
+        return [1] * len(tab)
+    keys = (lambda s, c: [("s", s)]) if by == "state" else (lambda s, c: [("s", s), ("c", c)])
+    count = {}
+    for s, c, t in tab:
+        for k in keys(s, c):
+            count.setdefault(k, {}).setdefault(t, 0)
+            count[k][t] += 1
+    return [max(round(max(count[k].values()) / count[k][t]) for k in keys(s, c)) for s, c, t in tab]
+
+
 class Speaker:
     def __init__(self, kind, cfg, seed, words, coding, n_kc, control=None):
         rs, sp = cfg["rng_streams"], cfg["capacity"]
@@ -97,15 +112,16 @@ class Speaker:
         if control == "no_kc":
             self.sim = PNDirect(self.sim, c, n, np.random.default_rng([seed, 8, 5]), kind == "spiking")
         self.n, self.control, self.dur = n, control, c["protocol"]["duration_ms"]
-        self.rng = np.random.default_rng([seed, 8, 4])
+        self.rng, self.balance = np.random.default_rng([seed, 8, 4]), sp.get("balance", "none")
 
     def stim(self, s, c):
         return np.maximum(self.pats["s:" + s], self.pats["c:" + c])
 
     def train(self, tab, epochs):
         idx = {w: i for i, w in enumerate(self.outs)}
+        order = np.repeat(np.arange(len(tab)), repeats(tab, self.balance))
         for _ in range(epochs):
-            for j in self.rng.permutation(len(tab)):
+            for j in self.rng.permutation(order):
                 s, c, t = tab[j]
                 i = int(self.rng.integers(len(self.outs))) if self.control == "shuffled" else idx[t]
                 dan = np.ones(self.n)

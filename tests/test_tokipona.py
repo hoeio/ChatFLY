@@ -14,3 +14,12 @@ def test_word_list_and_table_cover_every_sentence():
             state = tp.after(state, w)
             assert state != "X"
             k += k < len(cues) and cues[k] == w
+
+
+def test_repeats_balance_the_end_context():
+    from chatfly.tokipona import NONE, repeats, table, words_for
+
+    tab = table(words_for(112, 0))
+    r = dict(zip([(s, c) for s, c, _ in tab], repeats(tab, "state")))
+    assert r[("PRED", NONE)] == 112 and r[("PRED", "mi")] == 1 and r[("S0", "mi")] == 1
+    assert repeats(tab, "none") == [1] * len(tab)

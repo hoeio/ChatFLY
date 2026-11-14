@@ -1,4 +1,13 @@
-# Phase 8: Toki Pona hypotheses (ADR 0013)
+# Phase 8: Toki Pona hypotheses (ADR 0013) — closed 2026-11-15
+
+**Summary:**
+- **Final pipeline (8h-4):** eight flies hold a 300-turn Toki Pona conversation with replies exactly right 0.997 of the time (min 0.986) on new test seeds. Synthetic wiring, rate model.
+- **Hypotheses:** H1–H6 are supported.
+- **Glue:**
+  - The cue pointer became a fly that needs its KC layer.
+  - Word classes and roles became flies whose KC layer is not needed.
+  - Predicate routing (three failed tries), the confidence thresholds and reply plan (partly a fly on most seeds, not reliable on all), tokenizing and the teacher schedules stay glue.
+- Details and the full glue list: ADR 0013, "Phase 8 closed".
 
 ## 8a: output capacity — gate NOT passed (1 of 5 test seeds), but the capacity question is answered
 

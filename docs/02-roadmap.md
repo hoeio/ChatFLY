@@ -75,6 +75,11 @@ Each phase must pass its acceptance criteria before the next one begins. If it d
 - **8c:** memory for noun phrases (KC conjunctions)
 - **8d:** speaker over the closed vocabulary
 - **8e:** a subset-Toki Pona conversation
+- **8f–8i** (added during the phase): rehearsal for single outvoted contexts, and replacing glue with flies (reply decision, roles, cue pointer, predicate routing)
+- **Closed 2026-11-15 (user decision).**
+  - 8h-4 passes: a 300-turn conversation, 0.997 on new test seeds.
+  - H1–H6 are supported.
+  - Remaining glue is listed in ADR 0013, "Phase 8 closed".
 
 
 

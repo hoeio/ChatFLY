@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e: replies 0.923, gate not passed (seed 117's grammar fly misses one transition); 8e-2 (unrouted object memory) fails (0.926); 8e-3 (re-selection) 0.956, one seed's speaker context fails; **8f (rehearsal) passed the gate** (0.997), but its test seeds had no failing context (ablation identical); on the old failing seeds rehearsal repairs all three; **8f-2 passed** on 20 fresh seeds (min 0.986; the one seed failing without rehearsal, 0.852, reaches 1.000); 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
+- Status: **Closed (2026-11-15)**, see "Phase 8 closed" below. Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e: replies 0.923, gate not passed (seed 117's grammar fly misses one transition); 8e-2 (unrouted object memory) fails (0.926); 8e-3 (re-selection) 0.956, one seed's speaker context fails; **8f (rehearsal) passed the gate** (0.997), but its test seeds had no failing context (ablation identical); on the old failing seeds rehearsal repairs all three; **8f-2 passed** on 20 fresh seeds (min 0.986; the one seed failing without rehearsal, 0.852, reaches 1.000); 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -849,6 +849,41 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - A setting that knows more also answers more about unknown subjects. Without routing, an unknown subject shares its head word and the predicate's smell with known facts, the 8e-2 failure.
   - This is the third failure of the same kind (8d-2, 8e-2, 8i). The test was not run, since the selection data already rule out the gate.
   - **Predicate routing stays as glue.**
+
+## Phase 8 closed (2026-11-15, the user's decision)
+
+**Final pipeline** (8h-4, `configs/phase8h4_chat.yaml`):
+- **Flies:** a class fly, a grammar fly, a role fly, two routed memory flies (yes/no and object), a speaker, and a pointer fly.
+- **Performance:** a 300-turn Toki Pona conversation replies exactly 0.997 (min 0.986) on new test seeds 205–214. The conversation covers yes/no and object facts, changes of mind, yes/no and "what" questions, and unknown subjects.
+- **Synthetic wiring, rate model.** The spiking model and the FlyWire connectome were not tried in Phase 8.
+
+**Hypotheses:**
+
+| | verdict |
+|---|---|
+| H1 compact output codes | **supported** (8a): a 2-of-20 MBON code says 112 words as well as one group per word |
+| H2 particles carry the grammar | **supported** (8b): 14 states over 4 word classes, one unrouted fly, 1.000 |
+| H3 KC conjunctions for noun phrases | **supported** for one modifier (8c: 0.990, no-KC 0.500); two modifiers degrade, as predicted |
+| H4 closed vocabulary turns speaking into 7f's problem | **supported** with balanced teaching and 16000 KCs (8a-3, 8d) |
+| H5 deduplicated corpus teaching | **supported** (8b: 0.979 vs 0.807) |
+| H6 rehearsal fixes single outvoted contexts | **supported** (8f, 8f-2: every single-context failure seen was repaired) |
+
+**Glue:**
+- **Replaced by flies whose KC layer is needed:** the cue pointer (8h-4: 0.167 without its KCs).
+- **Replaced by flies whose KC layer is not needed (lookups):**
+  - word classes (class fly, 8b-3);
+  - roles (role fly, 8h).
+- **Kept as glue, with the failed replacements:**
+  - predicate routing of both memories (8d-2, 8e-2, 8i): without routing, known facts and unknown subjects cannot both be right;
+  - the confidence thresholds and reply plan:
+    - yes/no as a speaker decision from memory odors works on most seeds (8g-2) but leaves weak seeds (8h-2, 8h-3);
+    - the object decision fails (8g), since the 2-of-20 code makes the object memory's odor weak;
+  - tokenizing (the natural-language boundary);
+  - teacher schedules (state balance, rehearsal, practice).
+- **Lessons that recur:**
+  - Under depression learning, a context whose PNs are a subset of another's loses. That happened with odor-free contexts (8g) and same-word pairs (8h); separate patterns fix it.
+  - Single contexts get outvoted on some seeds (8a, 8e); teaching schedules fix it.
+  - Per-seed reliability, not the mean, is what the gates catch.
 
 ## Consequences
 

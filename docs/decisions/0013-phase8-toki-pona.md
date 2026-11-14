@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; 8c in progress; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -385,6 +385,24 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - Supported if the gate passes and level 2 is below level 1, as 7b predicts.
   - Rejected if level 1 fails, or the no-KC control does as well.
   - If level 2 also reaches 0.95, the predicted two-modifier limit is not seen.
+
+### 8c result (`results/20261114-173036_phase8c_phrase_memory_s0`): gate passed
+
+- **Selection** (mean level-1 correct, seeds 10–14): 0.555 (2000, 450), 0.855 (2000, 650), 0.860 (16000, 650), **0.980 (16000, 850)**, which is chosen.
+- **Test** (seeds 100–104; correct = answered and right, over 80 facts; mean, minimum in brackets):
+
+  | level | memory fly | no KC layer | shuffled | coverage | answered accuracy | never-taught probes answered |
+  |---|---|---|---|---|---|---|
+  | 0 (bare word) | 0.565 (0.475) | 0.613 | 0.275 | 0.565 | 1.000 | 0.000 |
+  | **1 (one modifier)** | **0.990 (0.975)** | **0.500** | **0.485** | 0.990 | 1.000 | 0.000 |
+  | 2 (two modifiers) | 0.823 (0.775) | 0.483 | 0.413 | 0.828 | 0.994 | 0.015 |
+
+- **Gate passed:** level 1 is ≥ 0.975 on every seed, and both controls are ≤ 0.50.
+- **H3 supported:**
+  - "jan pona" and "jan ike" are kept apart where the same modifiers go with every head. The no-KC rule cannot do it (0.50; it also answers 69% of never-taught phrases).
+  - Two modifiers degrade (0.82) as 7b predicted. The loss is coverage (the fly declines to answer); what it does answer is still 0.99 right.
+- **New limit:** at this setting a bare word is answered only 57% of the time (all of those right). A single word's PNs drive almost no KCs at the all-claws threshold (as in 8b-2). No single KC setting serves both words and phrases: the 2000/450 setting gives bare words 1.000 (seed 10 check) but phrases 0.55. 8d has to deal with this, for example with a memory fly per phrase length.
+- **Glue:** the phrase union is an interface rule (a mixture of the words' odors). The phrase boundaries come from the grammar fly's states.
 
 ## Consequences
 

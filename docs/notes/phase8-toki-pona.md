@@ -75,3 +75,12 @@ Details: ADR 0013.
 - But the no-KC control reaches 0.968 (perfect on 4/5 seeds). By the rule fixed in advance, the gate is not passed: the class step is a lookup that does not need the KC layer.
 
 Details: ADR 0013.
+
+## 8c: memory for noun phrases — gate passed (H3 supported)
+
+The memory fly runs at 16000 KCs with threshold 850, chosen on selection seeds. Facts about 40 phrases go to a fresh fly per level, with shared modifiers so that a conjunction is needed. Test seeds 100–104:
+- one modifier: 0.990 correct (min 0.975); no KC layer 0.500, shuffled 0.485;
+- two modifiers: 0.823, as predicted (lost coverage; the answers given are 0.99 right);
+- bare words at this setting: only 0.565 answered (all right). Single words are too sparse for the all-claws threshold, so no one setting serves words and phrases.
+
+Details: ADR 0013.

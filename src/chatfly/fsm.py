@@ -224,6 +224,7 @@ class Flies:
     "ensemble" (k flies, different wiring, same teaching; group rates summed: fixed rule),
     "routed" (one fly per input token; the input selects the fly: fixed routing rule),
     "routed_pn" (control: routed, each specialist is the rule on PNs without a KC layer),
+    "single_pn" (control: one fly, the rule on PNs without a KC layer),
     "routed_shared" (control: routed, one fly whose KC->MBON weights are a separate set per
     input: the same router glue with a single KC layer)."""
 
@@ -244,6 +245,9 @@ class Flies:
             self.sims = [PNDirect(self.sims[0], cfg, len(task["states"]),
                                   np.random.default_rng([seed, rs["fly"], i]), kind == "spiking")
                          for i in range(len(task["inputs"]))]
+        if arch == "single_pn":  # control: one fly, the rule on PNs (no KC layer)
+            self.sims = [PNDirect(self.sims[0], cfg, len(task["states"]),
+                                  np.random.default_rng([seed, rs["fly"], 0]), kind == "spiking")]
         if arch == "routed_shared":  # control: routed, ONE fly (one KC layer) with a separate
             self.sims = [WeightSlot(self.sims[0]) for _ in task["inputs"]]  # KC->MBON w per input
 

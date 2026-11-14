@@ -87,20 +87,22 @@ class GrammarFly:
     sense only when the word already selects the readout (routed archs).
     The dead state X is absorbing (interface rule, like the ring's "lost")."""
 
-    def __init__(self, kind, cfg, seed, arch, teacher="true", stim="state"):
+    def __init__(self, kind, cfg, seed, arch, teacher="true", stim="state", task=None, teach=None):
+        """task: the FSM (default: the Zumi grammar). teach: the whole presentation sequence of
+        (state, input, next) (default: every valid transition per epoch, in random order)."""
         rs = cfg["rng_streams"]
-        self.task = dfa(cfg["lang"])
+        self.task = task or dfa(cfg["lang"])
         self.c = task_cfg(cfg, self.task)
         self.pats = token_patterns(self.c, np.random.default_rng(seed + rs["tokens"]))
         self.flies = Flies(kind, self.c, self.task, seed, arch, 1)
         self.stim_kind, self.thr, self.cache = stim, 0.0, {} if kind == "rate" else None
         rng, st = np.random.default_rng(seed + rs["task"]), self.task["states"]
         valid = [(s, x, t) for s, x, t in transitions(self.task) if t != "X"]
-        for _ in range(self.c["protocol"]["n_train"]):
-            for i in rng.permutation(len(valid)):
-                s, x, t = valid[i]
-                tgt = int(rng.integers(len(st))) if teacher == "shuffled" else st.index(t)
-                self.flies.teach(self.stim(s, x), x, tgt)
+        if teach is None:
+            teach = [valid[i] for _ in range(self.c["protocol"]["n_train"]) for i in rng.permutation(len(valid))]
+        for s, x, t in teach:
+            tgt = int(rng.integers(len(st))) if teacher == "shuffled" else st.index(t)
+            self.flies.teach(self.stim(s, x), x, tgt)
 
     def stim(self, s, x):
         return self.pats[s] if self.stim_kind == "state" else present_pair(self.pats, s, x)

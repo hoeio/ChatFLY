@@ -191,3 +191,156 @@ def exp_capacity(cfg: dict, seed: int) -> dict:
             log.info("%s summary %s", kind, row)
         out.append({"simulator": kind, "rows": rows, "runs": res})
     return {"capacity": out}
+
+
+# ---- 8b: the grammar fly (ADR 0013) ----
+CLASSES = ("B", "W", "li", "e")  # B = mi/sina, W = any other content word (tokenizer glue)
+ACCEPT = {"P1", "P2", "P3", "O1", "O2", "O3"}
+
+
+def grammar_task() -> dict:
+    """The 8b subset as an FSM over word classes: subject (mi/sina alone, or a word with up to
+    two modifiers, then li), predicate with up to two modifiers, optional `e` + object with up
+    to two modifiers. Si = subject with i-1 modifiers; Pi, Oi likewise; X dead (absorbing).
+    Content words after the head are modifiers, mi/sina included ("tomo mi")."""
+    st = ["S0", "S1", "S2", "S3", "MI", "LI", "P1", "P2", "P3", "E", "O1", "O2", "O3", "X"]
+    d = {s: dict.fromkeys(CLASSES, "X") for s in st}
+    d["S0"].update(B="MI", W="S1")
+    for a, b in (("S1", "S2"), ("S2", "S3"), ("P1", "P2"), ("P2", "P3"), ("O1", "O2"), ("O2", "O3")):
+        d[a].update(B=b, W=b)
+    for s in ("S1", "S2", "S3"):
+        d[s]["li"] = "LI"
+    for s, nxt in (("MI", "P1"), ("LI", "P1"), ("E", "O1")):
+        d[s].update(B=nxt, W=nxt)
+    for s in ("P1", "P2", "P3"):
+        d[s]["e"] = "E"
+    return {"name": "tokipona_8b", "states": st, "inputs": list(CLASSES), "delta": d}
+
+
+def classes(words):
+    return [w if w in ("li", "e") else "B" if w in BARE else "W" for w in words]
+
+
+def utterance(rng, words, gc):
+    """A valid sentence of the subset (words)."""
+    others = [w for w in words if w not in BARE]
+    def phrase(head):
+        return [head] + [str(rng.choice(words)) for _ in range(rng.choice(3, p=gc["p_mods"]))]
+    out = [str(rng.choice(BARE))] if rng.random() < gc["p_bare"] else phrase(str(rng.choice(others))) + ["li"]
+    out += phrase(str(rng.choice(words)))
+    return out + (["e"] + phrase(str(rng.choice(words))) if rng.random() < gc["p_object"] else [])
+
+
+def salad(rng, words):
+    pool = list(words) + ["li", "e"]
+    return [str(rng.choice(pool)) for _ in range(rng.integers(2, 9))]
+
+
+def final(task, xs):
+    s = "S0"
+    for x in xs:
+        s = task["delta"][s][x]
+    return s
+
+
+def grammar_data(seed, words, gc, split):
+    """train: valid sentences; dev/test: valid sentences and word salads, half each."""
+    rng = np.random.default_rng([seed, 8, 6, ("train", "dev", "test").index(split)])
+    if split == "train":
+        return [utterance(rng, words, gc) for _ in range(gc["n_corpus"])]
+    n = gc["n_eval"] // 2
+    return [utterance(rng, words, gc) for _ in range(n)] + [salad(rng, words) for _ in range(n)]
+
+
+def teaching(task, source, corpus, epochs, rng):
+    """The presentation sequence. table: every valid transition once per epoch; table_bal: the
+    same with `repeats` (8a-3, state and input tokens); dedup: every transition seen in the corpus
+    once per epoch; raw: as many draws per epoch as dedup has, from the corpus occurrences
+    (frequency-weighted, same budget)."""
+    occ = []
+    for u in corpus:
+        s = "S0"
+        for x in classes(u):
+            occ.append((s, x, task["delta"][s][x]))
+            s = occ[-1][2]
+    valid = [(s, x, t) for s in task["states"] for x, t in task["delta"][s].items() if t != "X"]
+    if source in ("table", "table_bal"):
+        base = valid
+    else:
+        base = sorted(set(occ), key=valid.index)
+    reps = repeats(base, "token") if source == "table_bal" else [1] * len(base)
+    unit = [b for b, r in zip(base, reps) for _ in range(r)]
+    if source == "raw":
+        return [occ[i] for _ in range(epochs) for i in rng.integers(len(occ), size=len(unit))], len(base)
+    return [unit[i] for _ in range(epochs) for i in rng.permutation(len(unit))], len(base)
+
+
+def _gjob(args):
+    from chatfly.grammar import GrammarFly
+
+    kind, cfg, seed, run, split, thr = args
+    arch, teacher, stim, source, n_kc, theta = run
+    cfg = copy.deepcopy(cfg)
+    cfg["mb"]["n_kc"], cfg["rate"]["kc_theta"] = n_kc, theta
+    t0, gc, task = time.time(), cfg["grammar8"], grammar_task()
+    words = words_for(gc["vocab"], seed)
+    seq, n_taught = teaching(task, source, grammar_data(seed, words, gc, "train"), cfg["protocol"]["n_train"],
+                             np.random.default_rng([seed, 8, 7]))
+    g = GrammarFly(kind, cfg, seed, arch, teacher, stim, task=task, teach=seq)
+    data = [classes(u) for u in grammar_data(seed, words, gc, split)]
+    truth = [final(task, u) for u in data]
+    out = {"seed": seed, "run": list(run), "split": split, "taught": n_taught, "by_threshold": {}}
+    for t in [thr] if thr is not None else gc["conf_grid"]:
+        g.thr = t
+        got = [g.run(u) for u in data]
+        out["by_threshold"][str(t)] = {
+            "step_acc": g.step_acc(), "utterance_acc": float(np.mean([a == b for a, b in zip(got, truth)])),
+            "good_accepted": float(np.mean([f in ACCEPT for f, t_ in zip(got, truth) if t_ in ACCEPT])),
+            "bad_rejected": float(np.mean([f not in ACCEPT for f, t_ in zip(got, truth) if t_ not in ACCEPT]))}
+    if thr is not None:
+        out.update(out["by_threshold"][str(thr)], threshold=thr)
+    log.info("%s seed %d %s %s taught %d (%.0fs) %s", kind, seed, run, split, n_taught, time.time() - t0,
+             {k: round(v["utterance_acc"], 3) for k, v in out["by_threshold"].items()})
+    return out
+
+
+def exp_grammar8(cfg: dict, seed: int) -> dict:
+    """8b: thresholds per run and the main run chosen on select seeds (dev split), then the
+    main run, its controls and the references on test seeds (test split)."""
+    from chatfly.zumi3 import merged
+
+    cfg, out = merged(cfg), []
+    gc = cfg["grammar8"]
+    for kind in cfg["simulators"]:
+        runs = [tuple(r) for r in gc["candidates"] + gc["references"]]
+        with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
+            sel = list(ex.map(_gjob, [(kind, cfg, s, r, "dev", None) for r in runs for s in cfg["select_seeds"]]))
+        thr, score = {}, {}
+        for r in runs:
+            rs = [x for x in sel if tuple(x["run"]) == r]
+            m = {t: np.mean([x["by_threshold"][str(t)]["utterance_acc"] for x in rs]) for t in gc["conf_grid"]}
+            thr[r] = max(gc["conf_grid"], key=lambda t: (m[t], -t))
+            score[r] = float(m[thr[r]])
+            log.info("%s select %s: threshold %.2f, mean utterance acc %.3f", kind, r, thr[r], score[r])
+        cands = [tuple(r) for r in gc["candidates"]]
+        main = max(cands, key=lambda r: (round(score[r], 3), -cands.index(r)))  # ties (0.001): listed order
+        ctl = [("single_pn", "true", *main[2:]), (main[0], "shuffled", *main[2:])]
+        for r in ctl:  # controls get their own threshold on the select seeds too
+            rs = [_gjob((kind, cfg, s, r, "dev", None)) for s in cfg["select_seeds"]]
+            m = {t: np.mean([x["by_threshold"][str(t)]["utterance_acc"] for x in rs]) for t in gc["conf_grid"]}
+            thr[r] = max(gc["conf_grid"], key=lambda t: (m[t], -t))
+        test_runs = [main] + ctl + [r for r in runs if r != main]
+        with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
+            test = list(ex.map(_gjob, [(kind, cfg, s, r, "test", thr[r]) for r in test_runs for s in cfg["seeds"]]))
+        rows = []
+        for r in test_runs:
+            rs = [x for x in test if tuple(x["run"]) == r]
+            row = {"run": list(r), "role": "main" if r == main else "control" if r in ctl else "reference",
+                   "threshold": thr[r], "taught": [x["taught"] for x in rs],
+                   **{k: [float(np.mean([x[k] for x in rs])), float(np.min([x[k] for x in rs]))]
+                      for k in ("step_acc", "utterance_acc", "good_accepted", "bad_rejected")}}
+            rows.append(row)
+            log.info("%s summary %s", kind, row)
+        out.append({"simulator": kind, "main": list(main), "select_scores": {str(k): v for k, v in score.items()},
+                    "thresholds": {str(k): v for k, v in thr.items()}, "rows": rows, "select": sel, "test": test})
+    return {"grammar8": out}

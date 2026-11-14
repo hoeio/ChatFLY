@@ -23,3 +23,17 @@ def test_repeats_balance_the_end_context():
     r = dict(zip([(s, c) for s, c, _ in tab], repeats(tab, "state")))
     assert r[("PRED", NONE)] == 112 and r[("PRED", "mi")] == 1 and r[("S0", "mi")] == 1
     assert repeats(tab, "none") == [1] * len(tab)
+
+
+def test_grammar_task_accepts_sentences_and_counts_states():
+    import numpy as np
+
+    from chatfly.tokipona import ACCEPT, classes, final, grammar_task, utterance, words_for
+
+    task, words = grammar_task(), words_for(112, 0)
+    gc = {"p_bare": 0.3, "p_mods": [0.5, 0.3, 0.2], "p_object": 0.5}
+    rng = np.random.default_rng(0)
+    assert all(final(task, classes(utterance(rng, words, gc))) in ACCEPT for _ in range(500))
+    assert final(task, classes(["mi", "li", "moku"])) == "X"
+    assert final(task, classes(["jan", "pona", "li", "moku", "e", "kili"])) == "O1"
+    assert len(task["states"]) <= 30

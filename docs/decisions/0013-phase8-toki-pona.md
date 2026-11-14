@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; 8b in progress, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -200,6 +200,41 @@ Controls with every schedule: no KC layer steps 0.21–0.28, sentences 0.00; shu
   - It needs 16000 KCs with an all-claws threshold, 6 times one hemisphere's 2,597 KCs and sparser than the Phase 1 target. It says what the circuit would need, not that the fly has it.
   - The fix is a teaching schedule: rare contexts are taught as often as the majority that shares their state token. Counting the table is done by the designer, so this is teacher glue (not run-time glue).
   - States are still the true sentence states and the cue list comes from the interface; 8b replaces the states with a grammar fly.
+
+## Decisions (8b; written before the run)
+
+- **Grammar** (`tokipona.grammar_task`): an FSM over word classes.
+  - Classes: `B` = mi/sina, `W` = every other content word, `li`, `e`. Classing is done by the tokenizer (glue, as nouns were `N` in 7c).
+  - Sentences: a subject (mi/sina alone, or a word with up to two modifiers, then `li`); a predicate with up to two modifiers; an optional `e` and an object with up to two modifiers. Content words after a head are modifiers, mi/sina included ("tomo mi").
+  - 14 states (S0, S1–S3, MI, LI, P1–P3, E, O1–O3, X) over 4 inputs; 26 valid transitions. Accepting: P1–P3, O1–O3. **H2's state count holds by construction (14 ≤ 30)**; `pi` is not in this subset.
+- **Fly:** 7c's method. Only valid transitions are taught; an answer below the confidence threshold reads as X (dead, absorbing).
+  - **Main runs use one fly without routing:** state and word class are smelled together, so the KC conjunction has to do the work. This removes 7c's router glue.
+  - 7c's routed design (`routed_shared`, state only) is a reference.
+- **Teaching sources (H5):**
+  - `table`: every valid transition once per epoch.
+  - `table_bal`: the same with 8a-3's `repeats` over state and input tokens.
+  - `dedup`: every transition seen in 500 training sentences, once per epoch.
+  - `raw`: the same number of draws per epoch from the corpus occurrences (frequency-weighted, same budget).
+  - Training sentences: subject mi/sina with p 0.3; 0/1/2 modifiers per phrase with p 0.5/0.3/0.2; object with p 0.5; V = 112.
+- **Evaluation:** 1000 utterances per split, half valid sentences, half word salads (2–8 random words, `li` and `e` included).
+  - step accuracy over all 56 (state, class) transitions, X included;
+  - utterance accuracy (final state, closed loop);
+  - good accepted and bad rejected.
+- **Check on selection seed 10 before fixing the grid:**
+  - Default KC layer (2000 KCs, threshold 650): utterance accuracy 0.51–0.74 for every source.
+  - 16000 KCs, threshold 650 or 850, `table`: 1.000.
+  - So the KC count and threshold join the candidates: (2000, 650), (16000, 650), (16000, 850), each with all four sources.
+- **Selection** on seeds 10–14 (dev split).
+  - The threshold is chosen per run from `conf_grid`: the highest mean utterance accuracy, smallest threshold on ties.
+  - The **main run** is the candidate with the highest mean utterance accuracy. Ties (to 0.001) go to the order in `configs/phase8b_grammar.yaml`: fewer KCs, then table, dedup, table_bal, raw.
+  - The controls get their own thresholds on the same seeds:
+    - no KC layer (`single_pn`, the rule on PNs);
+    - shuffled teacher.
+- **Gate** (test seeds 90–94, test split). The main run must reach:
+  - step accuracy ≥ 0.99 and utterance accuracy ≥ 0.99 on every test seed;
+  - mean utterance accuracy ≤ 0.90 for each control.
+- **H5 verdict:** `dedup` vs `raw` at the main run's KC setting, on the test seeds. It is rejected if `dedup` does not beat `raw` on step accuracy.
+- **Biology:** as in 8a, 16000 KCs is 6 times a hemisphere. 2000 KCs is about the real count.
 
 ## Consequences
 

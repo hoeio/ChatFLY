@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) in progress, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -186,6 +186,20 @@ Seeds 10–19, V = 112, `k2n20`, 150 PNs, 16000 KCs, threshold 850:
 Controls with every schedule: no KC layer steps 0.21–0.28, sentences 0.00; shuffled steps ≤ 0.01, sentences 0.00.
 
 - **Chosen:** `state`. The test config keeps only it.
+
+#### 8a-3 test result (`results/20261114-161156_phase8a3_capacity_s0`): gate passed
+
+| test seed | 80 | 81 | 82 | 83 | 84 |
+|---|---|---|---|---|---|
+| step | 1.000 | 0.997 | 0.997 | 1.000 | 0.999 |
+| sentence | 1.000 | 0.994 | 0.982 | 1.000 | 0.980 |
+
+- No KC layer: steps 0.08–0.20, sentence exact ≤ 0.002. Shuffled teacher: steps ≤ 0.015, sentence exact 0.000.
+- **8a passes as 8a-3.** H1 is supported at this setting: a 2-of-20 MBON code (20 groups, fewer than the 48 MBONs per side) says all 112 content words plus `li`, `e` and EOS in sentences.
+- **Limits:**
+  - It needs 16000 KCs with an all-claws threshold, 6 times one hemisphere's 2,597 KCs and sparser than the Phase 1 target. It says what the circuit would need, not that the fly has it.
+  - The fix is a teaching schedule: rare contexts are taught as often as the majority that shares their state token. Counting the table is done by the designer, so this is teacher glue (not run-time glue).
+  - States are still the true sentence states and the cue list comes from the interface; 8b replaces the states with a grammar fly.
 
 ## Consequences
 

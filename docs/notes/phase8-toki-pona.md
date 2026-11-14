@@ -46,3 +46,7 @@ Glue in 8a: the true sentence state (8b's job), the cue pointer, and stopping at
 ## 8a-2: FlyWire-sized PN layer (340 PNs)
 
 Rejected at selection (seeds 10–19, `results/20261114-154242_phase8a2_capacity_select_s0`). The best mean sentence exact is still the 150-PN condition (0.751); the best 340-PN condition gives 0.742. Every condition is bimodal per seed (about 1.0 or about 0.5): one end-of-sentence context is lost by chance in about half the networks. More PNs do not fix it; the evidence points to a majority conflict on the state token, not input crowding. Details and the table: ADR 0013.
+
+## 8a-3: frequency-balanced teaching — gate passed
+
+Each rare context is taught as often as the majority sharing its state token ((PRED, `-`) → EOS 112 times per epoch). Selection seeds 10–19: sentence exact 0.990 (vs 0.751 without balance; balancing cue tokens too gave 0.940). Test seeds 80–84: steps ≥ 0.997 and sentence exact ≥ 0.980 on every seed; no-KC and shuffled controls ≤ 0.002. Needs 16000 KCs at an all-claws threshold; the schedule is teacher glue. Details: ADR 0013.

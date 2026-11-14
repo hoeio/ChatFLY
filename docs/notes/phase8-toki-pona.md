@@ -111,3 +111,7 @@ The failures:
 ## 8e-2: object memory without routing — fails
 
 "What" questions reach 0.926 (min 0.875) even at 64000 KCs, and unknown subjects 0.850. The object routing stays as glue.
+
+## 8e-3: re-selection for the conversation — gate not passed
+
+The selection kept 8e's settings (grammar fly perfect on 10/10 selection seeds). On new test seeds 125–129, replies are 1.000 / 0.993 / 0.802 / 0.993 / 0.993. On seed 127 the speaker says `li` where a modifier belongs (one context outvoted, as in 8a), and the grammar fly accepts the broken reply. 8 of the 10 test seeds of 8e and 8e-3 reach ≥ 0.96.

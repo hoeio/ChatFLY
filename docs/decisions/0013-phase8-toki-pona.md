@@ -536,6 +536,19 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - Without the memory KC layers, "what" questions fall to 0.265.
 - **Verdict:** closer than 8d-2, but replacing the object routing with a three-word conjunction still fails, even at 64000 KCs (25 times a hemisphere). Both predicate routings stay as glue.
 
+### 8e-3: the grammar fly and the yes/no memory chosen for the 8e conversation (the user chose option 3; written before the run)
+
+- **Stage 1, grammar fly** on the 8e grammar.
+  - The conditions (`configs/phase8e3_chat.yaml`, in tie order) vary the KC count, threshold, source (`table` or 8a-3-style `table_bal`) and confidence threshold. The first is 8b's setting.
+  - Chosen: the most selection seeds (10–19) with step accuracy 1.0, then the highest mean.
+- **Stage 2, yes/no memory,** with the chosen grammar fly.
+  - Confidence threshold 0.1 / 0.2 / 0.3 × 5 or 10 pairings per fact.
+  - Chosen: the highest mean reply exact on seeds 10–14; ties in the listed order.
+  - The object memory and speaker stay as in 8e.
+- **Gate:** 8e's, on new test seeds 125–129:
+  - reply exact ≥ 0.95 on every seed;
+  - mean ≤ 0.80 for each control.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

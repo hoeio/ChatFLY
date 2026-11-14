@@ -66,6 +66,23 @@ def speaker_table(content):
     return t + [("S0", "mi", "mi"), ("P", "ala", "ala"), ("P", NONE, EOS), ("PN", NONE, EOS)]
 
 
+def grammar_fly(kind, cfg, seed, task, gf):
+    """8b's grammar fly on a task; gf: n_kc, kc_theta, threshold, optional source (table | table_bal)."""
+    from chatfly.grammar import GrammarFly
+
+    c = copy.deepcopy(cfg)
+    c["mb"]["n_kc"], c["rate"]["kc_theta"] = gf["n_kc"], gf["kc_theta"]
+    seq, _ = teaching(task, gf.get("source", "table"), [], c["protocol"]["n_train"], np.random.default_rng([seed, 8, 7]))
+    g = GrammarFly(kind, c, seed, "single", "true", "pair", task=task, teach=seq)
+    g.thr = gf["threshold"]
+    return g
+
+
+def _gsel(args):
+    kind, cfg, seed, gf = args
+    return grammar_fly(kind, cfg, seed, grammar_e(), gf).step_acc()
+
+
 class Chat:
     def __init__(self, kind, cfg, seed, controls=()):
         dc, rs = cfg["chat8d"], np.random.default_rng([seed, 8, 12])
@@ -78,14 +95,9 @@ class Chat:
         self.cls = ClassFly(kind, c, seed, None, "no_kc" if "class_no_kc" in controls else None,
                             cf["balance"], vocab=self.vocab,
                             cls=(CLASSES_D + ("e",), classes_e) if self.objects_on else (CLASSES_D, classes_d))
-        from chatfly.grammar import GrammarFly
 
-        g, gf = grammar_e() if self.objects_on else grammar_d(), dc["grammar_fly"]
-        c = copy.deepcopy(cfg)
-        c["mb"]["n_kc"], c["rate"]["kc_theta"] = gf["n_kc"], gf["kc_theta"]
-        seq, _ = teaching(g, "table", [], c["protocol"]["n_train"], np.random.default_rng([seed, 8, 7]))
-        self.gram = GrammarFly(kind, c, seed, "single", "true", "pair", task=g, teach=seq)
-        self.gram.thr = gf["threshold"]
+        g = grammar_e() if self.objects_on else grammar_d()
+        self.gram = grammar_fly(kind, cfg, seed, g, dc["grammar_fly"])
         # subjects: heads x shared modifiers (8c level 1); predicates: the memory's output pairs
         pool = [str(w) for w in rs.permutation([w for w in content if w not in ("mi", "sina", "sona")])]
         nh, nm, npr = dc["n_heads"], dc["n_mods"], dc["n_preds"]
@@ -101,6 +113,7 @@ class Chat:
         mc = dc["memory_fly"]
         c = copy.deepcopy(cfg)
         c["mb"]["n_kc"], c["rate"]["kc_theta"] = mc["n_kc"], mc["kc_theta"]
+        c["lang"] = {**c["lang"], "memory": {**c["lang"]["memory"], "n_teach": mc.get("n_teach", c["lang"]["memory"]["n_teach"])}}
         self.routed = mc.get("routing", "pair") == "pair"  # "none" (8d-2): subject + predicate smelled together
         self.mem = phrase_memory(kind, c, seed, self.preds if self.routed else ["fact"],
                                  "no_kc" if "memory_no_kc" in controls else None)
@@ -260,6 +273,19 @@ def exp_chat8d(cfg: dict, seed: int) -> dict:
     dc = cfg["chat8d"]
     runs = [()] + [(c,) for c in dc["controls"]]
     chosen, job = None, _ejob if dc.get("objects") else _djob
+    gsel = None
+    if "grammar_select" in dc:  # 8e-3: the grammar fly's setting first: most select seeds at step 1.0, then mean
+        gs = dc["grammar_select"]
+        with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
+            acc = list(ex.map(_gsel, [(cfg["simulators"][0], cfg, s, {**dc["grammar_fly"], **c})
+                                      for c in gs["conds"] for s in gs["seeds"]]))
+        n = len(gs["seeds"])
+        per = [acc[i * n:(i + 1) * n] for i in range(len(gs["conds"]))]
+        best = max(range(len(per)), key=lambda i: (sum(a == 1.0 for a in per[i]), round(float(np.mean(per[i])), 4), -i))
+        gsel = {"conds": gs["conds"], "step_acc": per, "chosen": gs["conds"][best]}
+        log.info("grammar select %s -> %s", [(sum(a == 1.0 for a in p), round(float(np.mean(p)), 4)) for p in per], gsel["chosen"])
+        dc = {**dc, "grammar_fly": {**dc["grammar_fly"], **gsel["chosen"]}}
+        cfg = {**cfg, "chat8d": dc}
     sk, conds = ("memory_fly", dc["memory_conds"]) if "memory_conds" in dc else (
         (dc["select"]["key"], dc["select"]["conds"]) if "select" in dc else (None, None))
     if conds:  # 8d-2 / 8e: one fly's setting chosen on select seeds (mean reply exact; ties: listed order)
@@ -283,7 +309,7 @@ def exp_chat8d(cfg: dict, seed: int) -> dict:
                                                      float(np.min([x[k] for x in rs if x[k] is not None]))]
                                                  for k in keys}})
             log.info("%s summary %s", kind, rows[-1])
-        out.append({"simulator": kind, "chosen_memory": chosen, "rows": rows, "runs": res})
+        out.append({"simulator": kind, "chosen_memory": chosen, "grammar_select": gsel, "rows": rows, "runs": res})
     return {"chat8d": out}
 
 

@@ -798,6 +798,30 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - `role_no_kc` reported only (KC layer not needed, the user's decision).
 - **Check on selection seed 10:** reply 1.000; `pointer_no_kc` 0.177.
 
+#### 8h-4 result (`results/20261114-234836_phase8h4_chat_s0`): gate passed
+
+- **Test** (seeds 205–214): reply exact mean 0.997, min 0.986.
+  - yes/no 0.998;
+  - objects 0.996;
+  - unknown subjects 0.994;
+  - changes of mind 1.000.
+- **Controls, reply exact:**
+  - `memory_no_kc` 0.480;
+  - `speaker_no_kc` 0.000;
+  - `pointer_no_kc` 0.167;
+  - `role_no_kc` 0.997, identical to the full run (reported only).
+- **Gate:** both criteria are met.
+- **Reading:**
+  - The cue pointer is now a fly whose KC layer is needed, at no loss against 8f-2 (0.998).
+  - The role assignment is a fly too, but its KC layer adds nothing.
+  - The yes/no reply decision stays glue (threshold and plan). 8g-2 showed it can be a fly on most seeds, but 8h-2 and 8h-3 showed a tail of weak seeds.
+- **Glue left in the Toki Pona pipeline:**
+  - tokenizing;
+  - both predicate routings;
+  - both memories' confidence thresholds and the reply plan;
+  - the `mi`/`sina` swap (none in this task);
+  - teacher schedules (balance, rehearsal).
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

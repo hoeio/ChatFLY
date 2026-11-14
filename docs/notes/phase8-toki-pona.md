@@ -139,3 +139,7 @@ A role fly (reached state -> role) and a pointer fly ((cue, said word) on separa
 ## 8h-2: unknown-object odors split — gate not passed
 
 With the unknown-object reply taught on its own odors, the 8h failure is gone (unknown subjects 0.997), but seed 187 falls to 0.909: yes/no 0.812. The yes/no memory's odor under load is weak (e.g. yes 0.39 / doubt 0.61) and the speaker reads the wrong polarity, where the old threshold would have answered right. Pointer fly without KCs 0.177; role fly without KCs unchanged.
+
+## 8h-3 and 8h-4: option 2 fails, option 1 passes
+
+8h-3: more practice load and twice the speaker KCs leave the worst of 20 select seeds at about 0.91, so the odor-based yes/no decision was dropped. 8h-4: 8f-2's pipeline (threshold decision) plus the role fly and the pointer fly. Test seeds 205–214: replies 0.997 (min 0.986); no-KC memory 0.480, no-KC speaker 0.000, no-KC pointer 0.167; no-KC role fly unchanged (0.997). The cue pointer is now a fly that needs its KC layer.

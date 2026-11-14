@@ -114,6 +114,43 @@ The user asked to raise the bar to "GPT-2 level language use". In Zumi this mean
   - appropriate ≥ 0.95 and grammatical ≥ 0.95;
   - each control's mean content exact ≤ 0.70.
 
+## Decisions (7e)
+
+- **The user chose to go to 7e after 7d** (2026-11-14), with the control criteria set before the run.
+- **Zumi 3** (`src/chatfly/zumi3.py`).
+  - Pronoun `to` means the last named thing. The interface resolves it (a fixed rule, like the parse).
+  - Properties come in strict pair order (as in 7c).
+  - The oracle is stochastic. A teach turn may be followed by an ask-back (`o . to q ba .`), and a "na" answer by what is true. Exact means "one of the correct replies" (the support set).
+- **Speaker** (`CueSpeaker`).
+  - It is the split speaker smelling (grammar state, cue) and (previous word, cue).
+  - Cues come from the flies: ring place, comparator answer, memory properties, and the first unknown pair for an ask-back.
+  - A pointer over the cue list moves on when the fly says the cue's word. This is an interface rule.
+- **Sampling.** Each word is drawn from the normalized MBON group rates raised to 1/T.
+  - The config first said T = 1.0, "fixed in advance", but that was before any run. On selection seed 10, T = 1 gave exact 0.37: rate-proportional distributions are flat (median p(correct word) 0.74). Greedy gave 0.99.
+  - **T is chosen on selection seeds 10–14** (dev split, 30 dialogues each) from {0.1, 0.2, 0.3}, as the largest T with exact ≥ 0.95 on every seed.
+    - T = 0.1 has exact 0.958–0.999.
+    - T = 0.2 falls to 0.926 on seed 14.
+    - **T = 0.1**, and the baselines are sampled at the same T.
+  - Distinct-2 at T = 0.1 is 0.017–0.021. The oracle's own replies on seed 10 give 0.019: Zumi replies are short and repetitive by design, so the 4th criterion is read against the oracle's value.
+- **Perplexity** is measured on the normalized rates (T = 1), as defined in 7a, for every model.
+- **Finding before the test run** (selection seed 10). Fly perplexity is 1.559. The baselines give: 3-gram 1.581, 5-gram 1.384, 8-gram 1.325, RNN 1.278, GRU 1.275.
+  - Raising the rates to 1/T does not close the gap. The best value is 1.281 at T = 0.5, and exact is 0.76 there.
+  - Criterion 1 is therefore expected to fail. The criterion is not changed.
+- **Baselines:** n-grams (3, 5, 8), the Elman RNN, and a numpy GRU (gradient checked in `tests/test_zumi3.py`).
+- **Memory load:** 20 dialogues of 200 turns with 40 things each (Zumi 2's no-KC memory failed at 40).
+- **Gate (set before the test run)** (`configs/phase7e_zumi3.yaml`). On every test seed:
+  - perplexity below every baseline's mean;
+  - sampled grammatical ≥ 0.95, appropriate ≥ 0.95 and exact ≥ 0.95;
+  - max-length hits ≤ 0.01;
+  - memory exact in the load condition ≥ 0.95.
+
+  Control means must stay at or below these values:
+
+  | control | measure | max |
+  |---|---|---|
+  | shuffled | exact | 0.70 |
+  | no-KC memory under load | memory exact | 0.90 |
+
 ## Consequences
 
 - 7b is compared with these numbers (`docs/notes/phase7-speaking.md`). The fly earns credit

@@ -49,6 +49,8 @@ def dfa(lx) -> dict:
     d["S0"][lx["restart"]] = "B"
     d["S0"][lx["suppose"]] = d["B"][lx["suppose"]] = "SI"
     d["S0"][NOUN] = "N"
+    if "pronoun" in lx:  # Zumi 3: `to` stands where a noun can
+        d["S0"][lx["pronoun"]] = "N"
     d["P"][lx["yesno"]] = d["NP"][lx["yesno"]] = "DONE"
     d["N"][lx["is"]], d["N"][lx["what"]] = "KA", "DONE"
     last = len(lx["props"]) - 1
@@ -157,7 +159,7 @@ class GrammarSpeaker(SpeakingFly):
         n, task = len(self.vocab), self.grammar.task
         for _ in range(epochs):
             for d in dialogues:
-                for user, reply, _ in d:
+                for user, reply, *_ in d:
                     g, b, prev = true_state(user, task), self.tok(user[-1]), SEP
                     for t in reply + [EOS]:
                         tgt = int(self.rng.integers(n)) if self.control == "shuffled_teacher" else self.index[t]
@@ -178,7 +180,7 @@ class GrammarSpeaker(SpeakingFly):
 
 
 def utterance_scores(g, dialogues) -> dict:
-    rows = [(k, true_state(u, g.task), g.run(u)) for d in dialogues for u, _, k in d]
+    rows = [(k, true_state(u, g.task), g.run(u)) for d in dialogues for u, _, k, *_ in d]
     return {"step_acc": g.step_acc(), "utterance_acc": float(np.mean([t == f for _, t, f in rows])),
             "bad_rejected": float(np.mean([f not in ACCEPT for k, _, f in rows if k == "bad"])),
             "good_accepted": float(np.mean([f in ACCEPT for k, _, f in rows if k != "bad"]))}

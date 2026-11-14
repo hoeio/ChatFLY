@@ -35,6 +35,7 @@ log = logging.getLogger("chatfly")
 def reserved(lx) -> set:
     """Every Zumi word: none of them can be a noun."""
     one = {lx[k] for k in ("restart", "suppose", "where", "yesno", "is", "what")}
+    one |= {lx["pronoun"]} if "pronoun" in lx else set()  # Zumi 3 (ADR 0012)
     return one | set(lx["moves"]) | set(lx["places"]) | set(props(lx)) | set(lx["replies"].values())
 
 
@@ -57,7 +58,7 @@ def parse_memory(words, lx) -> dict | None:
         out = {"noun": noun, "kind": "ask", "props": rest[:1]}
     else:
         return None
-    if noun in reserved(lx) or not noun.isalpha():
+    if (noun in reserved(lx) and noun != lx.get("pronoun")) or not noun.isalpha():
         return {"refuse": "not_a_noun", "word": noun}
     if out["kind"] == "teach":
         if not out["props"]:

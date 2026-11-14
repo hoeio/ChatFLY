@@ -28,7 +28,7 @@ from chatfly.sim import SIMULATORS
 from chatfly.zumi import parse, props, random_utterance, reserved
 
 log = logging.getLogger("chatfly")
-SEP, EOS, NOUN = "|", "#", "N"
+SEP, EOS, NOUN, STOP = "|", "#", "N", "."
 KINDS = ("teach", "ask", "what", "ring", "bad")
 
 
@@ -142,18 +142,73 @@ def appropriate(kind, reply, lx) -> bool:
             }[kind]
 
 
-def evaluate(model, dialogues, lx, max_len=6) -> dict:
-    """Teacher-forced reply NLL / next-word accuracy, and greedy free generation of each
-    reply from the gold history."""
-    nll, hit, n_tok, rows = 0.0, 0, 0, []
+def sentences(reply) -> list | None:
+    """Zumi 3 reply -> list of sentences (each ends with "."), or None."""
+    if not reply or reply[-1] != STOP:
+        return None
+    out, cur = [], []
+    for w in reply:
+        if w == STOP:
+            if not cur:
+                return None
+            out.append(cur)
+            cur = []
+        else:
+            cur.append(w)
+    return out
+
+
+def sentence_form(s, lx) -> str | None:
+    """One Zumi 3 fly sentence -> its form: "o" "ya" "na" "hm" "e" "place" "is" "q", or None."""
+    r, pr = lx["replies"], props(lx)
+    inv = {v: k for k, v in r.items()}
+    if len(s) == 1 and s[0] in inv:
+        return {"ok": "o", "yes": "ya", "no": "na", "unsure": "hm", "huh": "e"}[inv[s[0]]]
+    if len(s) == 1 and s[0] in lx["places"]:
+        return "place"
+    if len(s) >= 3 and s[:2] == [lx["pronoun"], lx["is"]] and grammatical(s[2:], {**lx, "zumi3": False}):
+        return "is" if s[2] in pr else None
+    if len(s) == 3 and s[0] == lx["pronoun"] and s[1] in pr and s[2] == lx["yesno"]:
+        return "q"
+    return None
+
+
+# allowed (first sentence form, second sentence form or None) per utterance kind (Zumi 3)
+FORMS3 = {"teach": {("o", None), ("o", "q")}, "statement": {("o", None), ("hm", None)},
+          "bad": {("e", None)}, "where": {("place", None), ("hm", None)},
+          "what": {("is", None), ("hm", None)},
+          "ask": {("ya", None), ("na", None), ("na", "is"), ("hm", None)},
+          "yesno": {("ya", None), ("na", None), ("na", "place"), ("hm", None)}}
+
+
+def forms3(reply, lx):
+    ss = sentences(reply)
+    if ss is None or len(ss) > 2:
+        return None
+    f = [sentence_form(x, lx) for x in ss]
+    return None if None in f else (f[0], f[1] if len(f) > 1 else None)
+
+
+def evaluate(model, dialogues, lx, max_len=6, temperature=0.0, rng=None) -> dict:
+    """Teacher-forced reply NLL / next-word accuracy, and free generation of each reply from
+    the gold history: greedy (temperature 0) or sampled from dist ** (1 / temperature).
+    A turn may carry a 4th element, the set of every correct reply (Zumi 3: the oracle is
+    stochastic); "exact" then means the generated reply is in that set."""
+    z3 = lx.get("zumi3", False)
+    nll, hit, n_tok, rows, gens = 0.0, 0, 0, [], []
     for d in dialogues:
         st = model.init()
-        for user, reply, kind in d:
+        for user, reply, kind, *rest in d:
+            support = rest[0] if rest else {tuple(reply)}
             for t in user + [SEP]:
                 st, dist = model.step(st, t)
             gen, s, g = [], st, dist
             for _ in range(max_len):
-                t = model.vocab[int(np.argmax(g))]
+                if temperature > 0:
+                    q = g ** (1 / temperature)
+                    t = model.vocab[int(rng.choice(len(q), p=q / q.sum()))]
+                else:
+                    t = model.vocab[int(np.argmax(g))]
                 if t == EOS:
                     break
                 gen.append(t)
@@ -164,17 +219,26 @@ def evaluate(model, dialogues, lx, max_len=6) -> dict:
                 hit += int(np.argmax(dist)) == model.index[t]
                 n_tok += 1
                 st, dist = model.step(st, t)
-            rows.append((kind, gen == reply, grammatical(gen, lx), bool(gen) and appropriate(kind, gen, lx)))
+            if z3:
+                f = forms3(gen, lx)
+                ok_g, ok_a = f is not None, f in FORMS3[kind]
+            else:
+                ok_g, ok_a = grammatical(gen, lx), bool(gen) and appropriate(kind, gen, lx)
+            rows.append((kind, tuple(gen) in support, ok_g, ok_a, len(gen) == max_len))
+            gens.append(gen)
     out = {"perplexity": float(np.exp(nll / n_tok)), "next_word_acc": hit / n_tok}
-    for name, j in (("exact", 1), ("grammatical", 2), ("appropriate", 3)):
+    for name, j in (("exact", 1), ("grammatical", 2), ("appropriate", 3), ("max_len_hit", 4)):
         out[name] = float(np.mean([x[j] for x in rows]))
     out["exact_by_kind"] = {k: float(np.mean([x[1] for x in rows if x[0] == k]))
                             for k in sorted({x[0] for x in rows})}
+    bigrams = [(a, b) for g in gens for a, b in zip([SEP] + g, g + [EOS], strict=True)]
+    out["distinct_2"] = len(set(bigrams)) / max(len(bigrams), 1)
+    out["distinct_replies"] = len({tuple(g) for g in gens})
     return out
 
 
 def vocabulary(lx) -> list:
-    return sorted(reserved(lx)) + [NOUN, SEP, EOS]
+    return sorted(reserved(lx)) + [NOUN, SEP, EOS] + ([STOP] if lx.get("zumi3") else [])
 
 
 # --- baselines ----------------------------------------------------------------------------
@@ -218,7 +282,7 @@ class NGram:
     def fit(self, dialogues):
         for d in dialogues:
             h = ()
-            for user, reply, _ in d:
+            for user, reply, *_ in d:
                 for t in user + [SEP] + reply + [EOS]:
                     t = self.tok(t)
                     for k in range(len(h) + 1):
@@ -279,7 +343,7 @@ class RNN:
         seqs = []
         for d in ds:
             xs, ys = [], []
-            for user, reply, _ in d:
+            for user, reply, *_ in d:
                 toks = user + [SEP] + reply + [EOS]
                 for i, t in enumerate(toks[:-1]):
                     xs.append(self.x(t))
@@ -359,9 +423,9 @@ def exp_speak_baselines(cfg: dict, seed: int) -> dict:
     lx, bc, out = cfg["lang"], cfg["baselines"], []
     for s in cfg["seeds"]:
         train, dev, test = (corpus(cfg, s, k) for k in ("train", "dev", "test"))
-        kinds = [k for d in test for _, _, k in d]
+        kinds = [k for d in test for _, _, k, *_ in d]
         row = {"seed": s, "kind_freq": {k: kinds.count(k) / len(kinds) for k in sorted(set(kinds))},
-               "sample": [[" ".join(u), " ".join(r)] for u, r, _ in test[0][:12]], "models": {}}
+               "sample": [[" ".join(u), " ".join(r)] for u, r, *_ in test[0][:12]], "models": {}}
         vocab = vocabulary(lx)
         models = {"oracle": Oracle(cfg)}
         for n in bc["ngram_orders"]:
@@ -389,7 +453,8 @@ def exp_speak_baselines(cfg: dict, seed: int) -> dict:
 # --- 7b: the speaking fly -----------------------------------------------------------------
 
 def reply_words(lx) -> list:
-    return list(lx["replies"].values()) + list(lx["places"]) + list(props(lx))
+    extra = [lx["pronoun"], lx["is"], lx["yesno"], STOP] if lx.get("zumi3") else []
+    return list(lx["replies"].values()) + list(lx["places"]) + list(props(lx)) + extra
 
 
 class SpeakingFly:
@@ -452,7 +517,7 @@ class SpeakingFly:
         n = len(self.vocab)
         for _ in range(epochs):
             for d in dialogues:
-                for user, reply, _ in d:
+                for user, reply, *_ in d:
                     a, b = (["-", "-"] + [self.tok(w) for w in user])[-2:]
                     prev = SEP
                     for t in reply + [EOS]:
@@ -490,7 +555,7 @@ class ContextTable(SpeakingFly):
         self.split = cfg["speak"]["arch"] == "split"
         self.counts = {}
         for d in train:
-            for user, reply, _ in d:
+            for user, reply, *_ in d:
                 a, b = (["-", "-"] + [self.tok(w) for w in user])[-2:]
                 prev = SEP
                 for t in reply + [EOS]:

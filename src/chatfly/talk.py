@@ -98,7 +98,7 @@ class ContentSpeaker(SpeakingFly):
         n = len(self.vocab)
         for _ in range(epochs):
             for d in dialogues:
-                for user, reply, kind in d:
+                for user, reply, kind, *_ in d:
                     g, content, prev = true_state(user, task), oracle_content(user, reply, kind), SEP
                     for i, t in enumerate(reply + [EOS]):
                         tgt = int(self.rng.integers(n)) if self.control == "shuffled_teacher" else self.index[t]
@@ -185,7 +185,7 @@ def _job(args):
     test = corpus(cfg, seed, "test")[:cfg["talk"]["n_eval_dialogues"]]
     r = evaluate(tk, test, cfg["lang"])
     q = [r["exact_by_kind"][k] for k in QUERIES]
-    w = [sum(k2 == k for d in test for _, _, k2 in d) for k in QUERIES]
+    w = [sum(k2 == k for d in test for _, _, k2, *_ in d) for k in QUERIES]
     r["content_exact"] = float(np.average(q, weights=w))
     r["comparator_acc"], r["grammar_step_acc"] = tk.comp.accuracy(), tk.grammar.step_acc()
     log.info("%s seed %d %s: exact %.3f content %.3f approp %.3f gram %.3f ppl %.3f comp %.3f %s (%.0fs)",

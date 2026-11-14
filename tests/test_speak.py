@@ -17,7 +17,7 @@ def test_corpus_is_consistent():
     c = cfg()
     lx = c["lang"]
     for d in speak.corpus(c, 0, "test"):
-        for user, reply, kind in d:
+        for user, reply, kind, *_ in d:
             assert speak.kind_of(parse(" ".join(user), lx)) == kind
             assert speak.grammatical(reply, lx) and speak.appropriate(kind, reply, lx)
 

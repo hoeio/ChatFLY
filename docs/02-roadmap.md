@@ -67,6 +67,15 @@ Each phase must pass its acceptance criteria before the next one begins. If it d
 - **7e/7f:** Zumi 3 (pronoun, ask-back, sampled multi-sentence replies), GPT-2-level criteria
 - **Status (2026-11-14): closed.** 7a passed. 7b–7f gates not passed; the results and what they show are in `docs/notes/phase7-speaking.md`
 
+## Phase 8 — Toki Pona hypotheses (added at the user's request, 2026-11-14)
+
+- Goal (ADR 0013): test five hypotheses for how the current fly could learn a subset of Toki Pona, knowing general language is out of reach
+- **8a:** output capacity (Toki Pona vocabulary, one-hot vs compact MBON codes). If no coding passes, Toki Pona stops here
+- **8b:** grammar fly for a Toki Pona subset (particles carry the grammar; learning from example sentences)
+- **8c:** memory for noun phrases (KC conjunctions)
+- **8d:** speaker over the closed vocabulary
+- **8e:** a subset-Toki Pona conversation
+
 
 
 The mushroom body is a circuit designed to learn through a small number of trials, so transition-table learning itself (four transitions) is expected to be cheap. The time-consuming parts will be **hyperparameter tuning, achieving reliability, and long-sequence evaluation**. Always estimate simulation time before running.

@@ -1,0 +1,17 @@
+# Phase 8a (ADR 0013), selection run: output capacity for a Toki Pona vocabulary.
+# Picks the coding and KC count for the test run (configs/phase8a_capacity.yaml) on selection seeds.
+experiment: capacity
+base: configs/phase6_zumi.yaml
+seed: 0
+seeds: [10, 11, 12, 13, 14]
+simulators: [rate]
+workers: 10
+
+capacity:
+  vocab_sizes: [25, 60, 112]          # 112 = the 120 nimi pu minus 8 particles
+  codings: [onehot, k2n20, k3n12]     # one group per word, or k of n groups per word (H1)
+  n_kc: [2000, 8000]                  # 2000 ~ one hemisphere (phase6 config); 8000 as the 7f speaker
+  controls: [no_kc, shuffled]         # run at the largest vocabulary
+  n_messages: 500                     # random sentences scored per run
+  pn_active_frac: 0.15                # as the 7b-7f speaker
+  kc_theta: 650                       # as the 7b-7f speaker

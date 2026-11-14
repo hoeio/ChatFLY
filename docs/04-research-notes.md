@@ -76,3 +76,25 @@ The eLife pages were bot-blocked, so these were read on PMC: Li et al. 2020 (htt
   - "all MBONs eliciting aversion were glutamatergic and all the MBONs eliciting attraction were either GABAergic or cholinergic".
   - Dopamine pairing gives "depression of the synapses from the active KCs onto MBONs innervating that compartment" (Li 2020 intro).
 - **Measured (FlyWire v783):** MBON `side` is the soma side. For MBON01, 04, 05 and 06 the right-soma cell receives its KC input from left KCs, and vice versa. Example: right-soma MBON05 gets 9,926 synapses from left KCs and 0 from right KCs.
+
+### 2026-11-14 (Phase 8): Toki Pona (ADR 0013)
+
+- **Word list (verified):** https://sona.pona.la/wiki/nimi_pu (revision 37151, edited 9 July 2026). It has "120 main nimi pu, if ali is counted as a pronunciation variant of ale".
+  - The page also lists 3 "synonyms" (kin, namako, oko), not counted.
+  - The list is in `src/chatfly/tokipona.py` (`PU`).
+  - Page license: CC BY-SA 4.0. The words are used as a list with attribution; no glosses are copied.
+- **Word counts (verified, search summary of sona.pona.la "How many words"):**
+  - pu (2014 book): 120 advertised, 123 with the synonyms;
+  - ku (Toki Pona Dictionary, 2021): "137 essential words", up to 187 in total.
+- **Grammar (verified, sona.pona.la Grammar and Particles pages and a flashcard summary; the community sources differ in detail, and the book is the main reference):**
+  - `li` introduces the predicate, but not after a subject that is only `mi` or only `sina`;
+  - `e` marks the direct object;
+  - `la` ends a context phrase;
+  - `pi` groups modifiers (`jan pi pona mute`);
+  - `o` marks commands and vocatives.
+
+  Sources: https://sona.pona.la/wiki/Grammar, https://sona.pona.la/wiki/Particles, https://sona.pona.la/wiki/mi_li_and_sina_li
+- **License of Lang's texts (partly verified, sources conflict):**
+  - Wikisource lists the 2021 dictionary as CC0 (https://en.wikisource.org/wiki/Toki_Pona_Dictionary). Older sona pona revisions say CC BY 4.0.
+  - Wikipedia says the 2014 English book was dedicated to the public domain in April 2026 (https://en.wikipedia.org/wiki/Toki_Pona).
+  - **Unverified** on Lang's own site. We use only the word list and our own grammar generator, no text from the books.

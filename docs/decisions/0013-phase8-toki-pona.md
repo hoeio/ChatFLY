@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e: replies 0.923, gate not passed (seed 117's grammar fly misses one transition); 8e-2 (unrouted object memory) fails (0.926); 8e-3 (re-selection) 0.956, one seed's speaker context fails; **8f (rehearsal) passed the gate** (0.997), but its test seeds had no failing context (ablation identical); on the old failing seeds rehearsal repairs all three; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e: replies 0.923, gate not passed (seed 117's grammar fly misses one transition); 8e-2 (unrouted object memory) fails (0.926); 8e-3 (re-selection) 0.956, one seed's speaker context fails; **8f (rehearsal) passed the gate** (0.997), but its test seeds had no failing context (ablation identical); on the old failing seeds rehearsal repairs all three; **8f-2 passed** on 20 fresh seeds (min 0.986; the one seed failing without rehearsal, 0.852, reaches 1.000); 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -601,6 +601,18 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - mean ≤ 0.80 for `memory_no_kc` and `speaker_no_kc`;
   - **H6:** on every seed where `no_rehearse` is below 0.95, rehearsal reaches ≥ 0.95.
 - If no seed fails without rehearsal, H6 is still untested, and that will be reported as such.
+
+#### 8f-2 result (`results/20261114-203740_phase8f2_chat_s0`): gate passed, H6 met on the one failing seed
+
+- **Test** (seeds 135–154): reply exact mean 0.998, min 0.986; every seed ≥ 0.95.
+  - `memory_no_kc` 0.495, `speaker_no_kc` 0.000.
+- **`no_rehearse`:** mean 0.990. One seed is below 0.95: **seed 137, 0.852 → 1.000 with rehearsal** ("what" questions are its weak part without rehearsal, 0.755 at the minimum). The other 19 seeds are the same with and without rehearsal.
+- **Gate:** all three criteria are met.
+- **Reading:**
+  - With rehearsal, all 25 fresh test seeds of 8f and 8f-2 reach ≥ 0.986. Without it, 1 of those 25 fails.
+  - H6 now has one fresh failing seed rescued, plus the three old seeds from the diagnosis. That is consistent, but n = 1 on fresh seeds.
+  - The plain-fly failure rate here (1 in 20) is lower than in 8e / 8e-3 (3 in 10). With small counts this is within chance.
+  - Rehearsal never made a seed worse.
 
 ## Consequences
 

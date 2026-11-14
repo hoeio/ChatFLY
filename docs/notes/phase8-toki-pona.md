@@ -119,3 +119,7 @@ The selection kept 8e's settings (grammar fly perfect on 10/10 selection seeds).
 ## 8f: rehearsal — gate passed, H6 supported only on the old failing seeds
 
 After teaching, the teacher asks each fly every taught context and re-teaches the wrong ones (1 round, chosen on seeds 10–19). Test seeds 130–134: replies 0.997 (min 0.993); no-KC memory 0.476, no-KC speaker 0.000. The ablation without rehearsal gives the same 0.997, since none of these seeds had an outvoted context. On the old failing seeds (diagnosis, not a test), rehearsal lifts 117 from 0.730 to 0.967, 119 from 0.935 to 0.992 and 127 from 0.802 to 1.000. A clean test needs a larger set of fresh seeds.
+
+## 8f-2: rehearsal on 20 fresh seeds — gate passed
+
+Seeds 135–154 with rehearsal fixed at 1 round: replies 0.998 (min 0.986); no-KC memory 0.495, no-KC speaker 0.000. Without rehearsal, one seed fails (137: 0.852), and rehearsal brings it to 1.000. All 25 fresh seeds of 8f and 8f-2 are ≥ 0.986 with rehearsal.

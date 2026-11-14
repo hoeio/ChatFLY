@@ -68,3 +68,10 @@ Details: ADR 0013.
 - **B, grammar fly on words:** 1126 transitions; at best 0.62 utterance accuracy, even with the full table; most valid sentences are refused. Interference grows with the number of contexts, and nothing generalizes across words.
 
 Details: ADR 0013.
+
+## 8b-3: the class fly with single-word settings
+
+- With threshold 450 and class-balanced teaching, the class fly classes all 114 words right on every test seed (95–99). The class fly → grammar fly pipeline gives 0.999, the same as with the tokenizer.
+- But the no-KC control reaches 0.968 (perfect on 4/5 seeds). By the rule fixed in advance, the gate is not passed: the class step is a lookup that does not need the KC layer.
+
+Details: ADR 0013.

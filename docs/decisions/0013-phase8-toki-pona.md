@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; 8b-3 in progress, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -342,6 +342,27 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - mean utterance accuracy ≤ 0.90 for each control.
   - A passing no-KC control is recorded as "the class step does not need the KC layer".
 - The classes are still the dictionary's labels (designer knowledge in the teacher).
+
+#### 8b-3 result (`results/20261114-172601_phase8b3_classfly_s0`)
+
+- **Selection** (mean pipeline utterance accuracy):
+  - 0.484 (450, none), 0.485 (550, none), 0.484 (650, density 0.3).
+  - **1.000 (450, `class` balance)**, which is chosen.
+  - Without balance at these settings, the 110 `W` words take over the other classes.
+- **Test** (seeds 95–99):
+
+  | | class accuracy, mean (min) | pipeline utterance, mean (min) |
+  |---|---|---|
+  | **class fly → grammar fly** | **1.000 (1.000)** | **0.999 (0.996)** |
+  | (tokenizer → same grammar fly) | | 0.999 (0.996) |
+  | no KC layer | 0.996 (0.982) | 0.968 (0.838) |
+  | shuffled teacher | 0.256 | 0.367 |
+
+- The class fly itself passes: every word is classed right on every seed, and the pipeline matches the tokenizer. The one error on seed 99 is the grammar fly's.
+- **Gate not passed, by the control rule.** The no-KC control's mean (0.968) is above 0.90; it is perfect on 4 of 5 seeds. As written in advance, the class step is a lookup that does not need the KC layer: 114 random word patterns into 4 classes are almost linearly separable on PNs (as 7c's routed readout).
+- **What it shows:**
+  - The tokenizer's word → class step can be done by a fly, with balanced teaching and a single-word threshold.
+  - The KC layer is not what does it. The class labels still come from the dictionary.
 
 ## Consequences
 

@@ -81,11 +81,13 @@ def memory_odor(score, polar, split=False):
     return np.array([0.0, 0.0, sure, 0.0, doubt]) if split else np.array([0.0, 0.0, sure, doubt])
 
 
-def reply_odor_table(heads, mods, preds, opreds, objects, obj_glue=False):
+def reply_odor_table(heads, mods, preds, opreds, objects, obj_glue=False, obj_split=False):
     """8g: (state, cue, word, odor class) for every reply. The odors come from a practice session
     (Chat.practice). Cues: the subject, the predicate and the object word.
     obj_glue (8g-2): object replies keep the glue plan (threshold; "mi sona ala" as cues) and carry
-    the object memory's odor (class "obj": known and unknown alike) only so that no reply is odor-free."""
+    the object memory's odor (class "obj": known and unknown alike) only so that no reply is odor-free.
+    obj_split (8h-2): the unknown-object reply is taught with unknown-object odors (class "ounk"),
+    so that rehearsal checks it against what an unknown subject smells like."""
     yes, no, sure, unk = "yes", "no", "obj" if obj_glue else "sure", "unk"
     t = []
     for r, ps in ((yes, preds), (no, preds), (sure, opreds)):
@@ -96,7 +98,8 @@ def reply_odor_table(heads, mods, preds, opreds, objects, obj_glue=False):
     for h in heads:  # unknown: "mi sona ala"; the cue pointer stays on the head
         t += [("S0", h, "mi", unk), ("MI", h, "sona", unk), ("P", h, "ala", unk), ("PN", h, EOS, unk)]
     if obj_glue:
-        t += [("S0", "mi", "mi", sure), ("MI", "sona", "sona", sure), ("P", "ala", "ala", sure), ("PN", NONE, EOS, sure)]
+        ou = "ounk" if obj_split else sure
+        t += [("S0", "mi", "mi", ou), ("MI", "sona", "sona", ou), ("P", "ala", "ala", ou), ("PN", NONE, EOS, ou)]
     return t
 
 
@@ -179,7 +182,8 @@ class Chat:
         self.odor_off = "odor_off" in controls
         if self.odor:  # every reply carries an odor, so the odor-free table is not taught
             self.obj_glue = sc["mem_odor"].get("objects") == "glue"
-            tab = reply_odor_table(heads, mods[:nm], self.preds, self.opreds, self.objects, self.obj_glue)
+            self.obj_split = sc["mem_odor"].get("obj_split", False)
+            tab = reply_odor_table(heads, mods[:nm], self.preds, self.opreds, self.objects, self.obj_glue, self.obj_split)
             reps = [1] * len(tab)
             self.pool = self.practice(make_mem(), make_omem(), sc["mem_odor"]["n_practice"], np.random.default_rng([seed, 8, 18]))
         idx = {w: i for i, w in enumerate(self.sp.outs)}
@@ -271,7 +275,7 @@ class Chat:
         each (drawn as in a conversation) and keeps the odors they then give: per class yes, no,
         sure (object known), unknown. The speaker is taught with these."""
         own, self.mem, keep = self.mem, mem, self.omem
-        self.omem, pool = omem, {"yes": [], "no": [], "sure": [], "unk": [], "obj": []}
+        self.omem, pool = omem, {"yes": [], "no": [], "sure": [], "unk": [], "obj": [], "ounk": []}
         yn, ob = {}, {}  # facts drawn with replacement, so a later fact can change an earlier one
         for _ in range(n):
             sj = self.subjects[rng.integers(len(self.subjects))]
@@ -288,7 +292,7 @@ class Chat:
             pool["obj" if split else "sure"].append(memory_odor(omem.scores(list(sj), p), False, split))
         for s in self.unknown:
             pool["unk"].append(memory_odor(self.mem_rates(s, self.preds[rng.integers(len(self.preds))]), True))
-            pool["obj" if split else "unk"].append(
+            pool[("ounk" if self.obj_split else "obj") if split else "unk"].append(
                 memory_odor(omem.scores(list(s), self.opreds[rng.integers(len(self.opreds))]), False, split))
         self.mem, self.omem = own, keep
         return {k: np.array(v) for k, v in pool.items() if v}

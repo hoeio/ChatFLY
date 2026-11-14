@@ -734,6 +734,19 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - **The pointer fly works and needs its KC layer** (0.157 without it). The cue pointer can be a fly.
   - **The role fly works, but its KC layer adds nothing** (8b-3's outcome): the role is a lookup on the state.
 
+### 8h-2: unknown-object replies taught on their own odors (the user chose option 1 after 8h; written before the run)
+
+- **Change:** in 8g-2's object path, the unknown-object reply ("mi sona ala" on the cues `mi`, `sona`, `ala`) is taught and rehearsed with unknown-object practice odors (class `ounk`). Known-object replies keep the known-object odors (`obj`).
+  - Before, both used one mixed class, whose mean odor rehearsal checked against and which resembled neither: seed 178 in 8h.
+  - No new glue: the glue plan already tells the two cases apart.
+- **Role fly:** kept, with the note "KC layer not needed" (the user's decision, as the class fly after 8b-3). `role_no_kc` is reported but not gated.
+- **Settings:** 8h's chosen settings, fixed, no selection (`configs/phase8h2_chat.yaml`). **Test:** new seeds 185–194.
+- **Check on selection seed 10:** reply 0.980 (as 8h), `pointer_no_kc` 0.075.
+- **Gate:**
+  - reply exact ≥ 0.95 on every test seed;
+  - yes/no exact ≤ 0.80 for `memory_no_kc`, `speaker_no_kc` and `odor_off`;
+  - reply exact ≤ 0.80 for `pointer_no_kc`.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

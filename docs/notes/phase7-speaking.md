@@ -169,3 +169,44 @@ Options (for the user):
 2. **Look for a design in which the KC layer is needed**: no word routing, with the grammar split into sub-machines small
    enough for one fly (≤ 3–4 states, Phase 4). This is research with an uncertain outcome.
 3. Re-run with a different control limit. This changes a criterion after seeing results; not recommended.
+
+## 7d: content from the flies — gate NOT passed (control), fly criteria met
+
+Run `results/20261114-102055_phase7d_talk_s0` (`configs/phase7d_talk.yaml`, rate model, test
+seeds 60–64, 200 dialogues × 30 turns per seed). Nothing was tuned in 7d.
+
+| | exact | content exact | appropriate | grammatical | perplexity |
+|---|---|---|---|---|---|
+| **flies** | **0.990 (0.980)** | **0.986 (0.964)** | 0.996 (0.991) | 0.998 (0.991) | 1.20 |
+| all teachers shuffled | 0.683 | 0.423 | 0.996 | 0.998 | 1.95 |
+| memory without KC layer | 0.978 (0.968) | **0.963 (0.943)** | 0.996 | 0.998 | 1.23 |
+| 5-gram (7a, Zumi 2 corpus) | 0.789 | ~0.62 | 0.994 | 1.000 | 1.37 |
+| RNN (7a) | 0.790 | ~0.62 | 0.999 | 1.000 | 1.34 |
+
+Exact by kind, mean (min):
+
+| | teach | statement | bad | ask | what | where | yes/no |
+|---|---|---|---|---|---|---|---|
+| flies | 1.000 | 1.000 | 0.981 (0.932) | **1.000** | 0.961 (0.828) | 0.981 | 0.988 |
+| shuffled | 1.000 | 1.000 | 0.981 | 0.368 | 0.667 | 0.385 | 0.357 |
+| memory no KC | 1.000 | 1.000 | 0.981 | 0.975 | 0.888 (0.770) | 0.981 | 0.988 |
+
+**Verdict (ADR 0012 gate): not passed.**
+- Every fly criterion is met on every test seed: exact ≥ 0.980, content ≥ 0.964, appropriate and grammatical ≥ 0.991.
+- The shuffled control is at 0.42.
+- The memory-without-KC control has content exact 0.963, above the 0.70 limit.
+
+Reading:
+- **The dialogue content now comes from the flies.** Content exact 0.986, against about 0.6 for every
+  7a baseline, which have no memory across turns. Facts taught earlier in the dialogue are
+  answered right (ask 1.000), and so is the ring place carried across turns (where 0.98,
+  yes/no 0.99).
+- **The control criterion was too blunt, but it stands as written.** The no-KC control only
+  replaces the memory fly. Where and yes/no come from the ring fly in both runs, which is about
+  45% of content questions. On memory questions alone the KC layer helps (ask 1.000 vs 0.975,
+  what 0.961 vs 0.888), but at this load (6 things per dialogue) the PN-level rule is not far
+  behind. Zumi 2 showed the gap opens with more things (no KC: 0.90 at 40, 0.75 at 80).
+- `what` has one weak seed (0.828): every pair must be right, including leaving untaught pairs out.
+- Remaining glue, as recorded in ADR 0012: the parse routes questions to the flies, the "what" list
+  is in pair order, the grammar and comparator readouts are selected by the word, and X and
+  the ring's "lost" state are absorbing.

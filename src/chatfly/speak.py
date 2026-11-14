@@ -79,8 +79,9 @@ def utterance(rng, lx, nouns, co) -> list:
     noun = str(rng.choice(nouns))
     if kind == "teach":
         k = rng.integers(1, co["max_teach"] + 1)
-        return [noun, lx["is"]] + [list(pairs[i])[rng.integers(2)]
-                                   for i in rng.choice(len(pairs), k, replace=False)]
+        idx = rng.choice(len(pairs), k, replace=False)
+        idx = sorted(idx) if lx.get("prop_order") == "strict" else idx
+        return [noun, lx["is"]] + [list(pairs[i])[rng.integers(2)] for i in idx]
     if kind == "ask":
         return [noun, list(pairs[rng.integers(len(pairs))])[rng.integers(2)], lx["yesno"]]
     if kind == "what":

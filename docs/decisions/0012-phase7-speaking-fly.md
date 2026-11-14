@@ -76,6 +76,26 @@ The user asked to raise the bar to "GPT-2 level language use". In Zumi this mean
 - **Selection:** (token density, KC threshold) from a 4-point grid on seeds 10–14 (dev split), by mean appropriate.
 - **Gate (set before the test run):** on every test seed grammatical ≥ 0.95 and appropriate ≥ 0.95, and each fly control's mean appropriate ≤ 0.90. Content (exact on ask / what / where / yes-no) is not part of the 7b gate.
 
+## Decisions (7c)
+
+- **Grammar as an FSM** (`grammar.dfa`). It has 14 states over 21 inputs (Zumi words, nouns as N). The state machine is used only for training targets and evaluation; `tests/test_grammar.py` checks it against `zumi.parse` on the corpus and 5,000 random word salads.
+- **Zumi 3 rule:** properties must come in pair order (good/bad, size, heat, speed), like adjective order. Without it, contradiction checks need the set of pairs used (more states). `lang.prop_order: strict`; Zumi 2 is unchanged.
+- **Teaching every table entry failed** on selection seeds.
+  - With word-routed readout, transitions were 0.87 correct and almost every sentence was rejected. For most words most states lead to the dead state X, and word-only KCs settle on X (the Phase 4 margin mechanism).
+  - Learning only from corpus experience gave the opposite: valid sentences accepted, but only 70–74% of word salads rejected.
+  - Mixing corpus and table passes did not help.
+- **Teaching only valid transitions** and reading low confidence as "dead". It is the Zumi 2 memory idea: never taught → no preference.
+  - Presenting the state token alone in the word-selected readout gave 1.000 on selection seeds 10–11 at threshold 0.05. Taught transitions had confidence ≥ 0.82, untaught ones ≤ 0.015 (95th percentile).
+  - X is absorbing (interface rule, like the ring's "lost").
+- **Finding before the test run:** with the same routing and state-only input, the rule **without a KC layer** also reaches 1.000 on the selection seeds, at threshold 0.15–0.2. Each word's readout is a lookup over 14 random state patterns, which are linearly separable.
+  - So in this design the router and the rule do the work, not the KC layer. This repeats the revised Gate D verdict.
+  - Without routing (one fly, state + word together), only 0.75–0.80 of valid transitions are argmax-correct.
+- **Gate (set before the test run):** on every test seed:
+  - grammar step accuracy ≥ 0.99 and utterance accuracy ≥ 0.99;
+  - speaker grammatical ≥ 0.95 and appropriate ≥ 0.95;
+  - each control's mean utterance accuracy ≤ 0.90.
+- Thresholds are chosen per run on select seeds, so the controls get the same tuning.
+
 ## Consequences
 
 - 7b is compared with these numbers (`docs/notes/phase7-speaking.md`). The fly earns credit

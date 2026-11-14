@@ -68,6 +68,8 @@ def parse_memory(words, lx) -> dict | None:
         pairs = [pr[w][0] for w in out["props"]]
         if len(set(pairs)) < len(pairs):  # "bon mal", or "bon bon"
             return {"refuse": "contradiction"}
+        if lx.get("prop_order") == "strict" and pairs != sorted(pairs):  # Zumi 3 (ADR 0012)
+            return {"refuse": "property_order"}
     return out
 
 
@@ -202,7 +204,8 @@ class Conversation:
                    "empty": "say something",
                    "not_a_noun": f"'{p.get('word')}' is a Zumi word, not a thing",
                    "ka_needs_property": f"'{lx['is']}' needs a property after it",
-                   "contradiction": "a thing can't be both sides of one pair"}[p["refuse"]]
+                   "contradiction": "a thing can't be both sides of one pair",
+                   "property_order": "properties go in pair order: bon/mal gu/pi ho/ku ra/lo"}[p["refuse"]]
             return {**out, "reply": r["huh"], "gloss": f"Huh? ({why}.)"}
         if "noun" in p:
             if self.memory is None:

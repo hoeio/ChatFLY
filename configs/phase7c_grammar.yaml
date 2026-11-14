@@ -1,0 +1,49 @@
+# Phase 7c (ADR 0012): the fly tracks the grammar state of the user's utterance, and the
+# speaker's first word uses that state. Zumi 3 grammar change: strict property order.
+experiment: grammar
+base: configs/phase6_zumi.yaml
+lang_overrides: {prop_order: strict}
+seed: 0
+seeds: [60, 61, 62, 63, 64]             # test seeds, test split (as 7a/7b)
+select_seeds: [10, 11, 12, 13, 14]      # main arch on the dev split: a check, nothing is chosen here
+simulators: [rate]
+workers: 10
+rng_streams: {tokens: 10000, noise: 1000, corpus: 70000, task: 20000, fly: 100}
+
+corpus:                                 # as 7a/7b, with strict property order (lang_overrides)
+  n_train: 2000
+  n_dev: 200
+  n_test: 500
+  turns: 30
+  n_nouns: 6
+  noun_len: [3, 7]
+  max_teach: 3
+  p_kind: [0.25, 0.2, 0.1, 0.35, 0.1]
+  p_restart: 0.05
+  ring: {max_moves: 3, p_question: [0.3, 0.35, 0.35], p_suppose: 0.25}
+
+grammar:                                # runs: [arch, teacher, stim]; only valid transitions are taught
+  main: [routed_shared, "true", state]  # one fly, KC->MBON weight set selected by the word (Phase 4)
+  runs:
+    - [routed_shared, "true", state]
+    - [routed_shared, shuffled, state]  # control: teacher shuffle
+    - [routed_pn, "true", state]        # control: same routing, no KC layer
+    - [single, "true", pair]            # control: no routing (state + word smelled together)
+    - [routed_shared, "true", pair]     # variant: routing, state + word smelled together
+  conf_grid: [0.0, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25]  # below: "dead" (X); chosen per run on select seeds
+  n_eval_dialogues: 200
+
+speak:                                  # the speaker, as chosen in 7b (not re-tuned)
+  arch: split
+  pn_active_frac: 0.15
+  kc_theta: 650
+  n_train_dialogues: 300
+  epochs: 3
+  floor: 0.001
+
+gate:                                   # ADR 0012, set before the run; every test seed
+  step_acc_min: 0.99                    # grammar fly, every transition (rate: deterministic)
+  utterance_acc_min: 0.99               # final state of every test utterance, closed loop
+  speaker_grammatical_min: 0.95
+  speaker_appropriate_min: 0.95         # the 7b gate
+  control_utterance_acc_max: 0.90       # mean, each control (shuffled teacher, single, routed_pn)

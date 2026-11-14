@@ -1,0 +1,33 @@
+# Phase 8b-2 A (ADR 0013): the tokenizer's word -> class step done by a fly (class fly), in
+# series with 8b's grammar fly (fixed: its chosen run and threshold). The class fly's condition
+# is chosen on select_seeds (dev split), then tested.
+experiment: classfly
+base: configs/phase6_zumi.yaml
+seed: 0
+seeds: [90, 91, 92, 93, 94]             # 8b's test seeds, so the grammar fly is the tested one
+select_seeds: [10, 11, 12, 13, 14]
+simulators: [rate]
+workers: 10
+
+classfly:
+  conds:                                # in tie order (seed 10 check: 2000/650/none gave class acc 0.965)
+    - {n_kc: 2000, kc_theta: 650, balance: none}
+    - {n_kc: 2000, kc_theta: 650, balance: class}
+    - {n_kc: 16000, kc_theta: 850, balance: none}
+    - {n_kc: 16000, kc_theta: 850, balance: class}
+  controls: [no_kc, shuffled]
+  grammar_run: [single, "true", pair, table, 2000, 650]   # 8b main run
+  grammar_threshold: 0.1                                  # chosen in 8b
+
+grammar8:                               # data as 8b
+  vocab: 112
+  n_corpus: 500
+  n_eval: 1000
+  p_bare: 0.3
+  p_mods: [0.5, 0.3, 0.2]
+  p_object: 0.5
+
+gate:                                   # ADR 0013, set before the run; every test seed
+  class_acc_min: 1.0                    # all 114 words
+  utterance_acc_min: 0.99               # class fly -> grammar fly, closed loop
+  control_utterance_acc_max: 0.90       # mean, each control

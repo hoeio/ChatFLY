@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly) in progress, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -263,6 +263,39 @@ Controls with every schedule: no KC layer steps 0.21–0.28, sentences 0.00; shu
   - The tokenizer gives word classes, so the fly never sees which content word it is (glue: classing).
   - The subset has no `pi`, `la`, `o`, questions or several predicates.
   - The rate model only.
+
+## Decisions (8b-2: the tokenizer's classes; asked by the user; written before the runs)
+
+The user asked whether the tokenizer's word → class step can be a fly. Two ways, both run.
+
+### A: a class fly in series (`configs/phase8b2_classfly.yaml`)
+
+- **Class fly** (`tokipona.ClassFly`): it smells one word (114: content words, `li`, `e`) and says its class (one MBON group per class).
+  - It is taught from the word list's labels (the dictionary), every word per epoch.
+  - The decoded class is the grammar fly's input (a fixed rule, like the state loop). A silent or tied class fly gives X.
+  - The class knowledge moves from the run-time tokenizer into the teacher's labels; it is still set by the designer.
+- **Grammar fly:** 8b's chosen run (one fly, table, 2000 KCs, threshold 650; confidence threshold 0.1), unchanged.
+- **Check on selection seed 10:** with 2000 KCs, threshold 650 and no balance, class accuracy is 0.965 and utterance accuracy 0.904. 110 `W` words outvote the 4 others (the 8a-3 majority conflict). So the class fly's condition is selected.
+- **Conditions,** in tie order: (2000, 650) and (16000, 850), each with balance `none` or `class`. `class` teaches each word (largest class size / its class size) times per epoch, which is 8a-3's rule with the class as the only key.
+- **Selection** on seeds 10–14 (dev split): the highest mean utterance accuracy of the class fly → grammar fly pipeline. Ties (to 0.001) go to the listed order.
+- **Gate** on 8b's test seeds 90–94 (the grammar fly there is the tested one):
+  - class accuracy 1.0 (all 114 words) and utterance accuracy ≥ 0.99 on every seed;
+  - mean utterance accuracy ≤ 0.90 for both class-fly controls (no KC layer, shuffled teacher).
+  - If the no-KC control also passes, the class step is a lookup that does not need the KC layer. That is recorded, as in 7c.
+
+### B: no classes (`configs/phase8b2_words.yaml`)
+
+- The grammar fly reads the words themselves: 14 states × 114 inputs, 1126 valid transitions (`tokipona.word_task`).
+- Random word patterns share nothing, so the fly cannot carry what it learns about one word to another. Each (state, word) transition must be taught.
+- **Runs:**
+  - `table` (every valid transition; built from the classes, so it is an upper bound) at (2000, 650), (16000, 650), (16000, 850);
+  - `dedup` from 500, 2000 and 8000 training sentences at the same three settings.
+- **Procedure:** as 8b. Thresholds are chosen per run on seeds 10–14. The "main" run is the best `table` run; its controls are no KC layer and a shuffled teacher. Everything runs on test seeds 90–94.
+- **B is a measurement, with no gate.** It reports:
+  - whether word-level table teaching reaches 8b's level (step and utterance ≥ 0.99 on every test seed);
+  - the smallest corpus where `dedup` does, if any.
+
+  Expected: the table works with enough KCs. `dedup` is limited by coverage, because unseen (state, word) pairs read as dead.
 
 ## Consequences
 

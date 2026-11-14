@@ -217,6 +217,14 @@ def grammar_task() -> dict:
     return {"name": "tokipona_8b", "states": st, "inputs": list(CLASSES), "delta": d}
 
 
+def word_task(words) -> dict:
+    """8b-2 B: the same grammar with the words themselves as inputs (no classes)."""
+    g = grammar_task()
+    ins = list(words) + ["li", "e"]
+    d = {s: {w: g["delta"][s][c] for w, c in zip(ins, classes(ins))} for s in g["states"]}
+    return {"name": "tokipona_8b_words", "states": g["states"], "inputs": ins, "delta": d}
+
+
 def classes(words):
     return [w if w in ("li", "e") else "B" if w in BARE else "W" for w in words]
 
@@ -243,16 +251,16 @@ def final(task, xs):
     return s
 
 
-def grammar_data(seed, words, gc, split):
-    """train: valid sentences; dev/test: valid sentences and word salads, half each."""
+def grammar_data(seed, words, gc, split, n_corpus=None):
+    """train: valid sentences (the first n_corpus); dev/test: valid sentences and word salads, half each."""
     rng = np.random.default_rng([seed, 8, 6, ("train", "dev", "test").index(split)])
     if split == "train":
-        return [utterance(rng, words, gc) for _ in range(gc["n_corpus"])]
+        return [utterance(rng, words, gc) for _ in range(n_corpus or gc["n_corpus"])]
     n = gc["n_eval"] // 2
     return [utterance(rng, words, gc) for _ in range(n)] + [salad(rng, words) for _ in range(n)]
 
 
-def teaching(task, source, corpus, epochs, rng):
+def teaching(task, source, corpus, epochs, rng, tok=classes):
     """The presentation sequence. table: every valid transition once per epoch; table_bal: the
     same with `repeats` (8a-3, state and input tokens); dedup: every transition seen in the corpus
     once per epoch; raw: as many draws per epoch as dedup has, from the corpus occurrences
@@ -260,7 +268,7 @@ def teaching(task, source, corpus, epochs, rng):
     occ = []
     for u in corpus:
         s = "S0"
-        for x in classes(u):
+        for x in tok(u):
             occ.append((s, x, task["delta"][s][x]))
             s = occ[-1][2]
     valid = [(s, x, t) for s in task["states"] for x, t in task["delta"][s].items() if t != "X"]
@@ -279,15 +287,17 @@ def _gjob(args):
     from chatfly.grammar import GrammarFly
 
     kind, cfg, seed, run, split, thr = args
-    arch, teacher, stim, source, n_kc, theta = run
+    arch, teacher, stim, source, n_kc, theta, *n_corpus = run  # n_corpus: optional 7th entry
     cfg = copy.deepcopy(cfg)
     cfg["mb"]["n_kc"], cfg["rate"]["kc_theta"] = n_kc, theta
-    t0, gc, task = time.time(), cfg["grammar8"], grammar_task()
+    t0, gc = time.time(), cfg["grammar8"]
     words = words_for(gc["vocab"], seed)
-    seq, n_taught = teaching(task, source, grammar_data(seed, words, gc, "train"), cfg["protocol"]["n_train"],
-                             np.random.default_rng([seed, 8, 7]))
+    on_words = gc.get("inputs", "classes") == "words"
+    task, tok = (word_task(words), list) if on_words else (grammar_task(), classes)
+    corpus = grammar_data(seed, words, gc, "train", n_corpus[0] if n_corpus else None)
+    seq, n_taught = teaching(task, source, corpus, cfg["protocol"]["n_train"], np.random.default_rng([seed, 8, 7]), tok)
     g = GrammarFly(kind, cfg, seed, arch, teacher, stim, task=task, teach=seq)
-    data = [classes(u) for u in grammar_data(seed, words, gc, split)]
+    data = [tok(u) for u in grammar_data(seed, words, gc, split)]
     truth = [final(task, u) for u in data]
     out = {"seed": seed, "run": list(run), "split": split, "taught": n_taught, "by_threshold": {}}
     for t in [thr] if thr is not None else gc["conf_grid"]:
@@ -344,3 +354,100 @@ def exp_grammar8(cfg: dict, seed: int) -> dict:
         out.append({"simulator": kind, "main": list(main), "select_scores": {str(k): v for k, v in score.items()},
                     "thresholds": {str(k): v for k, v in thr.items()}, "rows": rows, "select": sel, "test": test})
     return {"grammar8": out}
+
+
+# ---- 8b-2 A: the tokenizer as a fly ----
+class ClassFly:
+    """Smells one word and says its class (one MBON group per class). Taught from the word list's
+    labels (the dictionary), every word once per epoch; its decoded class is the grammar fly's input."""
+
+    def __init__(self, kind, cfg, seed, words, control=None, balance="none"):
+        """balance "class": each word taught (largest class size / its class size) times per epoch
+        (8a-3's rule with the class as the only key)."""
+        from chatfly.parity import dan_for
+
+        rs, c = cfg["rng_streams"], copy.deepcopy(cfg)
+        self.words = list(words) + ["li", "e"]
+        c["mb"]["compartments"], c["tokens"]["names"] = list(CLASSES), [f"w:{w}" for w in self.words]
+        self.pats = token_patterns(c, np.random.default_rng([seed, 8, 8]))
+        self.sim = SIMULATORS[kind](c, seed + 3 * rs["fly"], noise_seed=seed * rs["noise"] + 9)
+        if control == "no_kc":
+            self.sim = PNDirect(self.sim, c, len(CLASSES), np.random.default_rng([seed, 8, 9]), kind == "spiking")
+        rng, dur, target = np.random.default_rng([seed, 8, 10]), c["protocol"]["duration_ms"], classes(self.words)
+        reps = [round(max(map(target.count, CLASSES)) / target.count(k)) if balance == "class" else 1 for k in target]
+        order = np.repeat(np.arange(len(self.words)), reps)
+        for _ in range(c["protocol"]["n_train"]):
+            for i in rng.permutation(order):
+                tgt = int(rng.integers(len(CLASSES))) if control == "shuffled" else CLASSES.index(target[i])
+                self.sim.present(self.pats["w:" + self.words[i]], dur, dan_for(tgt, len(CLASSES)))
+        self.dur, self.cache = dur, {}
+
+    def __call__(self, w):
+        """The class, or None (silent or tied: the grammar fly then reads X)."""
+        from chatfly.fsm import argmax_or_none
+
+        if w not in self.cache:
+            r = group_rates(self.sim, self.sim.present(self.pats["w:" + w], self.dur)["mbon"])
+            i = argmax_or_none(r)
+            self.cache[w] = None if i is None else CLASSES[i]
+        return self.cache[w]
+
+
+def _cjob(args):
+    from chatfly.grammar import GrammarFly
+
+    kind, cfg, seed, cond, control, split = args
+    cc, gc = cfg["classfly"], cfg["grammar8"]
+    g_run = cc["grammar_run"]
+    c = copy.deepcopy(cfg)
+    c["mb"]["n_kc"], c["rate"]["kc_theta"] = cond["n_kc"], cond["kc_theta"]
+    words = words_for(gc["vocab"], seed)
+    cf = ClassFly(kind, c, seed, words, control, cond["balance"])
+    class_acc = float(np.mean([cf(w) == k for w, k in zip(cf.words, classes(cf.words))]))
+    gcfg = copy.deepcopy(cfg)
+    gcfg["mb"]["n_kc"], gcfg["rate"]["kc_theta"] = g_run[4], g_run[5]
+    task = grammar_task()
+    seq, _ = teaching(task, g_run[3], [], gcfg["protocol"]["n_train"], np.random.default_rng([seed, 8, 7]))
+    g = GrammarFly(kind, gcfg, seed, *g_run[:3], task=task, teach=seq)
+    g.thr = cc["grammar_threshold"]
+    data = grammar_data(seed, words, gc, split)
+    out = {}
+    for name, tok in (("tokenizer", classes), ("class_fly", lambda u: [cf(w) for w in u])):
+        got = []
+        for u in data:
+            s = "S0"
+            for x in tok(u):
+                s = "X" if x is None else g.step(s, x)
+            got.append(s)
+        out[name] = float(np.mean([a == final(task, classes(u)) for a, u in zip(got, data)]))
+    log.info("%s seed %d %s class fly %s %s: class acc %.3f, utterance %s", kind, seed, split, cond, control,
+             class_acc, out)
+    return {"seed": seed, "cond": cond, "control": control, "class_acc": class_acc,
+            "utterance_tokenizer": out["tokenizer"], "utterance_class_fly": out["class_fly"]}
+
+
+def exp_classfly(cfg: dict, seed: int) -> dict:
+    """8b-2 A: class fly -> grammar fly (8b's chosen run, fixed). The class fly's condition is
+    chosen on select seeds (dev split: best mean utterance accuracy, ties to the listed order),
+    then it and its controls run on the test seeds."""
+    from chatfly.zumi3 import merged
+
+    cfg, out = merged(cfg), []
+    cc = cfg["classfly"]
+    for kind in cfg["simulators"]:
+        with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
+            sel = list(ex.map(_cjob, [(kind, cfg, s, c, None, "dev") for c in cc["conds"] for s in cfg["select_seeds"]]))
+        score = [float(np.mean([r["utterance_class_fly"] for r in sel if r["cond"] == c])) for c in cc["conds"]]
+        best = cc["conds"][max(range(len(score)), key=lambda i: (round(score[i], 3), -i))]
+        log.info("%s select scores %s -> %s", kind, score, best)
+        jobs = [(kind, cfg, s, best, ctl, "test") for ctl in [None] + cc["controls"] for s in cfg["seeds"]]
+        with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
+            res = list(ex.map(_cjob, jobs))
+        rows = []
+        for ctl in [None] + cfg["classfly"]["controls"]:
+            rs = [r for r in res if r["control"] == ctl]
+            rows.append({"control": str(ctl), **{k: [float(np.mean([r[k] for r in rs])), float(np.min([r[k] for r in rs]))]
+                         for k in ("class_acc", "utterance_tokenizer", "utterance_class_fly")}})
+            log.info("%s summary %s", kind, rows[-1])
+        out.append({"simulator": kind, "chosen": best, "select_scores": score, "rows": rows, "runs": res, "select": sel})
+    return {"classfly": out}

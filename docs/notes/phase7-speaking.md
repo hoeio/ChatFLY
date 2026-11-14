@@ -210,3 +210,50 @@ Reading:
 - Remaining glue, as recorded in ADR 0012: the parse routes questions to the flies, the "what" list
   is in pair order, the grammar and comparator readouts are selected by the word, and X and
   the ring's "lost" state are absorbing.
+
+## 7e: Zumi 3, sampled replies — gate NOT passed (perplexity, memory under load)
+
+Run `results/20261114-111206_phase7e_zumi3_s0` (`configs/phase7e_zumi3.yaml`, commit ab15a4d, rate
+model, test seeds 60–64). Corpus: 200 dialogues × 30 turns per seed. Load condition: 20 dialogues × 200
+turns, 40 things each. Every reply word is sampled at T = 0.1 (chosen on selection seeds 10–14,
+ADR 0012). Values are means, with the minimum over seeds in brackets.
+
+| | perplexity | exact | grammatical | appropriate | distinct-2 | max-len | memory exact |
+|---|---|---|---|---|---|---|---|
+| **flies** | **1.469** | **0.978 (0.967)** | 0.995 (0.985) | 0.989 (0.980) | 0.0034 | 0.0007 | 0.953 (0.906) |
+| flies, load (40 things) | 1.543 | 0.953 (0.928) | 0.987 | 0.978 | 0.0045 | 0.0017 | **0.917 (0.875)** |
+| control: all teachers shuffled | 2.787 | **0.670** | 0.995 | 0.988 | 0.0031 | 0.0005 | 0.427 |
+| control: load, memory without KC | 2.356 | 0.742 | 0.981 | 0.969 | 0.0045 | 0.0023 | **0.534** |
+| 3-gram | 1.578 | 0.615 | 0.959 | 0.910 | 0.0021 | 0 | |
+| 5-gram | 1.384 | 0.758 | 0.962 | 0.958 | 0.0021 | 0.0005 | |
+| 8-gram | 1.319 | 0.767 | 1.000 | 0.996 | 0.0028 | 0 | |
+| RNN | 1.280 | 0.760 | 1.000 | 0.999 | 0.0032 | 0 | |
+| **GRU** | **1.268** | 0.764 | 1.000 | 0.998 | 0.0032 | 0 | |
+
+Oracle (correct) replies on the same test dialogues have distinct-2 0.0032 and 98–100 distinct
+replies per seed.
+
+**Verdict (ADR 0012 gate): not passed.**
+
+| criterion | result |
+|---|---|
+| 1. Perplexity below every baseline | **failed**: 1.469 against the GRU's 1.268, as expected from selection seed 10 |
+| 2. Grammatical, appropriate and exact ≥ 0.95 on every seed | passed (minimum 0.967) |
+| 3. Max-length hits ≤ 0.01 | passed (≤ 0.0027) |
+| 4. Diversity | the fly's distinct-2 (0.0034) matches the oracle's (0.0032), with no runaway replies |
+| 5a. Memory exact under load ≥ 0.95 on every seed | **failed**: mean 0.917, minimum 0.875 |
+| 5b. Shuffled control exact ≤ 0.70 | passed (0.670), by a small margin |
+| 5c. No-KC memory control under load ≤ 0.90 | passed, clearly (0.534) |
+
+Reading:
+- **The sampled replies are right, and the baselines' are not.** The flies give one of the
+  correct replies 97.8% of the time, against about 76% for the baselines, which have no memory across turns.
+  They use the pronoun and ask back, and their diversity matches the oracle's.
+- **Perplexity is the fly's weak point.** Normalized MBON rates are flat (median p(correct word)
+  ≈ 0.74). Good generation needs a sharp decoder (T = 0.1), and that decoder is an interface choice.
+  The gated RNN models the next-word distribution better. The fly wins on content, the GRU on
+  calibrated probabilities.
+- **The KC layer is shown to matter for the first time in Phase 7.** Under memory load, the no-KC
+  memory rule falls to 0.53 while the KC memory keeps 0.92. This is the control 7c and 7d lacked.
+  It still falls short of the 0.95 bar at 40 things, so the memory fly's capacity is the limit.
+- Glue, unchanged from 7d plus: pronoun resolution (topic = last named thing), the cue pointer, and the temperature.

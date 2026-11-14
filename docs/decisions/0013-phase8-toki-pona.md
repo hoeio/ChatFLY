@@ -562,6 +562,16 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - Across 8e and 8e-3, 8 of 10 test seeds are ≥ 0.96.
   - The two failures are single contexts in a fly (grammar on 117; speaker plus grammar on 127), each going wrong on one seed. Per-seed reliability of single contexts is the limit, as in 8a.
 
+### 8f: rehearsal for single contexts (the user chose option 1 after 8e-3; written before the run)
+
+- **Problem:** the 8e and 8e-3 failures are single contexts outvoted on one seed: (S0, `mi`) → MI in the grammar fly (seed 117), and (S1, modifier) → modifier in the speaker (seed 127, outvoted by the 112 (S2, word) → `li` contexts). 8a-3's state balance does not touch the speaker case: every S1 context has its own target, so all its repeats are 1. Cue balance would teach (S2, `sike`) → `li` more, the wrong way (it also did worse in 8a-3).
+- **Change (H6):** after the usual teaching, the teacher runs `rehearse` rounds. Each round asks the fly every taught context and teaches again, once, the ones it gets wrong. For the grammar fly these are the valid transitions only (dead ones stay untaught, as in 8b). This uses the same teaching signal as before. The only glue is the teacher's schedule (which contexts, how often), like 8a-3's balance.
+- **Selection:** seeds 10–19 (`configs/phase8f_chat.yaml`). Stage 1: grammar fly with `rehearse` 1 or 3 (8b's setting otherwise), most seeds at step accuracy 1.0, then mean, ties to the listed order. Stage 2: speaker `rehearse` 1 or 3, mean reply exact, ties to the listed order. Everything else is 8e-3.
+- **Test:** new seeds 130–134.
+- **Gate (same as 8e):** reply exact ≥ 0.95 on every test seed; mean ≤ 0.80 for `memory_no_kc` and `speaker_no_kc` (both with rehearsal).
+- **Ablation, not gated:** `no_rehearse` (both flies without rehearsal) on the same test seeds, to show what rehearsal adds there.
+- **What would count against H6:** a seed still fails with one context wrong after rehearsal, or a no-KC control with rehearsal clears 0.80 (then the schedule, not the KC code, does the work).
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

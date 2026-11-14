@@ -68,6 +68,7 @@ def speaker_table(content):
 
 def grammar_fly(kind, cfg, seed, task, gf):
     """8b's grammar fly on a task; gf: n_kc, kc_theta, threshold, optional source (table | table_bal)."""
+    from chatfly.fsm import transitions
     from chatfly.grammar import GrammarFly
 
     c = copy.deepcopy(cfg)
@@ -75,6 +76,12 @@ def grammar_fly(kind, cfg, seed, task, gf):
     seq, _ = teaching(task, gf.get("source", "table"), [], c["protocol"]["n_train"], np.random.default_rng([seed, 8, 7]))
     g = GrammarFly(kind, c, seed, "single", "true", "pair", task=task, teach=seq)
     g.thr = gf["threshold"]
+    valid = [(s, x, t) for s, x, t in transitions(task) if t != "X"]
+    for _ in range(gf.get("rehearse", 0)):  # 8f: re-teach the valid transitions the fly gets wrong
+        for s, x, t in [v for v in valid if g.step(*v[:2]) != v[2]]:
+            g.flies.teach(g.stim(s, x), x, task["states"].index(t))
+        if g.cache is not None:
+            g.cache.clear()
     return g
 
 
@@ -97,7 +104,8 @@ class Chat:
                             cls=(CLASSES_D + ("e",), classes_e) if self.objects_on else (CLASSES_D, classes_d))
 
         g = grammar_e() if self.objects_on else grammar_d()
-        self.gram = grammar_fly(kind, cfg, seed, g, dc["grammar_fly"])
+        nr = {"rehearse": 0} if "no_rehearse" in controls else {}  # 8f ablation
+        self.gram = grammar_fly(kind, cfg, seed, g, {**dc["grammar_fly"], **nr})
         # subjects: heads x shared modifiers (8c level 1); predicates: the memory's output pairs
         pool = [str(w) for w in rs.permutation([w for w in content if w not in ("mi", "sina", "sona")])]
         nh, nm, npr = dc["n_heads"], dc["n_mods"], dc["n_preds"]
@@ -118,7 +126,7 @@ class Chat:
         self.mem = phrase_memory(kind, c, seed, self.preds if self.routed else ["fact"],
                                  "no_kc" if "memory_no_kc" in controls else None)
         self.mem_thr = mc["threshold"]
-        sc = dc["speaker"]
+        sc = {**dc["speaker"], **nr}
         c = copy.deepcopy(cfg)
         c["capacity"] = dict(sc)
         self.sp = Speaker(kind, c, seed, content + ["ala"], sc["coding"], sc["n_kc"],
@@ -128,12 +136,19 @@ class Chat:
             tab += [("P", o, "e") for o in self.objects] + [("E", o, o) for o in self.objects] + [("O", NONE, EOS)]
         idx = {w: i for i, w in enumerate(self.sp.outs)}
         order = np.repeat(np.arange(len(tab)), repeats(tab, sc["balance"]))
+        def teach(j):
+            s, cue, t = tab[j]
+            dan = np.ones(self.sp.n)
+            dan[self.sp.code[idx[t]]] = 0.0
+            self.sp.sim.present(self.sp.stim(s, cue), self.sp.dur, dan)
         for _ in range(c["protocol"]["n_train"]):
             for j in self.sp.rng.permutation(order):
-                s, cue, t = tab[j]
-                dan = np.ones(self.sp.n)
-                dan[self.sp.code[idx[t]]] = 0.0
-                self.sp.sim.present(self.sp.stim(s, cue), self.sp.dur, dan)
+                teach(j)
+        for _ in range(sc.get("rehearse", 0)):  # 8f: the teacher re-teaches the contexts the fly says wrong
+            wrong = [j for j, (s, cue, t) in enumerate(tab) if self.sp.say(s, cue) != t]
+            log.info("seed %d speaker rehearsal: %d of %d contexts wrong", seed, len(wrong), len(tab))
+            for j in self.sp.rng.permutation(wrong):
+                teach(j)
 
     def read(self, words):
         """Run the class and grammar flies; roles from the states. Returns (final state,

@@ -190,7 +190,7 @@ class Talker3:
         self.speaker.train_cues(train, cfg["speak"]["epochs"], self.grammar.task)
         self.vocab, self.index = self.speaker.vocab, self.speaker.index
         self.mem_control = {"shuffled": "shuffled_teacher", "no_kc_memory": "no_kc"}.get(control)
-        self.conv = self.topic = None
+        self.conv = self.topic = self.last = None
 
     def init(self):
         lx = self.lx
@@ -203,7 +203,7 @@ class Talker3:
     def cues(self, words):
         """The utterance goes to the ring / memory flies (they move or learn); returns the cues."""
         lx, r = self.lx, self.lx["replies"]
-        p = parse(" ".join(words), lx)
+        p, self.last = parse(" ".join(words), lx), None
         if "refuse" in p:
             return []
         if "noun" in p:
@@ -212,7 +212,7 @@ class Talker3:
                 return []
             self.topic = noun
             words = [noun] + list(words[1:])
-        out = self.conv.turn(" ".join(words))
+        out = self.last = self.conv.turn(" ".join(words))
         kind, m = kind_of(p), self.conv.memory
         if kind == "teach":
             for i, pair in enumerate(lx["props"]):
@@ -363,17 +363,21 @@ def _job(args):
     return res
 
 
-def exp_zumi3(cfg: dict, seed: int) -> dict:
-    """7e: baselines and the fly system on the Zumi 3 test corpus (sampled generation),
-    the shuffled control, and the memory-load condition with the no-KC memory control."""
+def merged(cfg):
+    """The config on top of its base (lang and rng_streams merged key by key)."""
     from pathlib import Path
 
     import yaml
 
-    root = Path(__file__).resolve().parents[2]
-    base = yaml.safe_load((root / cfg["base"]).read_text())
-    cfg = {**base, **cfg, "lang": {**base["lang"], **cfg.get("lang_overrides", {})},
-           "rng_streams": {**base["rng_streams"], **cfg.get("rng_streams", {})}}
+    base = yaml.safe_load((Path(__file__).resolve().parents[2] / cfg["base"]).read_text())
+    return {**base, **cfg, "lang": {**base["lang"], **cfg.get("lang_overrides", {})},
+            "rng_streams": {**base["rng_streams"], **cfg.get("rng_streams", {})}}
+
+
+def exp_zumi3(cfg: dict, seed: int) -> dict:
+    """7e: baselines and the fly system on the Zumi 3 test corpus (sampled generation),
+    the shuffled control, and the memory-load condition with the no-KC memory control."""
+    cfg = merged(cfg)
     out = []
     for kind in cfg["simulators"]:
         jobs = [(kind, cfg, s, w) for s in cfg["seeds"] for w in cfg["zumi3"]["jobs"]]

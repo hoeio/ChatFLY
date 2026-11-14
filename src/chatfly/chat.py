@@ -216,6 +216,10 @@ def load(argv, desc):
     a = p.parse_args(argv)
     cfg = yaml.safe_load(a.config.read_text())
     print("Training the fly...")
+    if "zumi3" in cfg:  # Phase 7f: Talker3 trains its own flies (chatfly.web)
+        from chatfly.zumi3 import merged
+
+        return a, merged(cfg), None
     return a, cfg, fly_for(a.sim, cfg, a.seed)
 
 

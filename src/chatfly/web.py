@@ -2,6 +2,7 @@
 
 python -m chatfly.web configs/phase5_chat.yaml [--sim rate|spiking] [--seed N] [--port 8000]
 python -m chatfly.web configs/phase6_zumi.yaml  (Zumi, ADR 0010; picked when the config has `lang`)
+python -m chatfly.web configs/phase7f_zumi3.yaml (Zumi 3, ADR 0012: the fly says its own reply; rate only)
 
 Serves one page on 127.0.0.1 and POST /ask {"text": ...} -> the turn's result. Answers
 come from a fly trained at startup; nothing is canned. Requests are handled one at a time
@@ -9,10 +10,13 @@ come from a fly trained at startup; nothing is canned. Requests are handled one 
 """
 
 import json
+import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from importlib.resources import files
 
-from chatfly import zumi
+import numpy as np
+
+from chatfly import zumi, zumi3
 from chatfly.chat import load, parse, turn
 
 
@@ -37,6 +41,39 @@ def zumi_app(fly, cfg, a):
 
     def ask(text):
         return {**conv.turn(text), "place": conv.place}
+
+    return info, lx["web"], lambda t: len(zumi.parse(t, lx).get("moves", [])), ask
+
+
+def zumi3_app(a, cfg):
+    """Phase 7f (ADR 0012): the whole Talker3 system; every reply word is sampled from the
+    speaker's MBON rates. One dialogue for every visitor."""
+    if a.sim != "rate":
+        raise SystemExit("The Zumi 3 demo runs the rate model only (Phase 7f was run in it).")
+    lx, zc = cfg["lang"], cfg["zumi3"]
+    tk, rng = zumi3.Talker3(a.sim, cfg, a.seed), np.random.default_rng(a.seed)
+    st = tk.init()
+    info = {"mode": "zumi3", "sim": a.sim, "places": lx["places"], "props": lx["props"],
+            "pronoun": lx["pronoun"], "place": tk.conv.place, "temperature": zc["temperature"]}
+
+    def ask(text):
+        nonlocal st
+        for w in re.findall(r"[^\s.,!?]+", text.lower()):
+            st, _ = tk.step(st, w)
+        st, dist = tk.step(st, zumi3.SEP)
+        g, cues, said = st[1], list(st[2]), []
+        while len(said) < zc["max_len"]:
+            q = dist ** (1 / zc["temperature"])
+            i = int(rng.choice(len(q), p=q / q.sum()))
+            if tk.vocab[i] == zumi3.EOS:
+                break
+            said.append([tk.vocab[i], float(dist[i] / dist.sum())])
+            st, dist = tk.step(st, tk.vocab[i])
+        st, _ = tk.step(st, zumi3.EOS)
+        out = tk.last or {}
+        return {"said": said, "grammar": g, "cues": cues, "place": tk.conv.place,
+                "trace": out.get("trace", []), "start": out.get("start"), "memory": out.get("memory", []),
+                "refuse": zumi.parse(text, lx).get("refuse")}
 
     return info, lx["web"], lambda t: len(zumi.parse(t, lx).get("moves", [])), ask
 
@@ -88,7 +125,10 @@ def make_handler(info, lim, n_tokens, ask):
 
 def main(argv=None):
     a, cfg, fly = load(argv, "Serve the chat demo page on localhost.")
-    app = zumi_app(fly, cfg, a) if "lang" in cfg else chat_app(fly, cfg["chat"], a.sim)
+    if "zumi3" in cfg:
+        app = zumi3_app(a, cfg)
+    else:
+        app = zumi_app(fly, cfg, a) if "lang" in cfg else chat_app(fly, cfg["chat"], a.sim)
     srv = HTTPServer(("127.0.0.1", a.port), make_handler(*app))
     print(f"Demo at http://127.0.0.1:{a.port}  (Ctrl+C stops)")
     try:

@@ -95,6 +95,11 @@
       <code>si</code> what if (imagine, don't move) · <code>bzz</code> start over</p>
     <p>The fly says <code>ya</code> yes · <code>na</code> no · <code>o</code> okay ·
       <code>hm</code> not sure · <code>e</code> huh? Full guide: <code>docs/zumi-guide.md</code>.</p>
+    <p id="legend-zumi3" hidden><b>Zumi 3 (Phase 7f).</b> <code>to</code> means the last thing
+      named (<code>to ke?</code>); properties go in pair order (<code>ice ka bon ku.</code>). The fly
+      says its own reply: a grammar fly reads your sentence, the trip, memory and yes/no flies
+      supply what to say, and a speaking fly samples every word from its output neurons. It can
+      ask back: <code>o. to gu ba?</code> (okay; is it big?).</p>
     <p><b>How it answers.</b> A fixed parser (no LLM) splits your sentence by the one grammar
       rule. The fly runs each move word through its feedback loop, starting from where it last
       was, so its memory of its place is the loop itself. The page only names the fly's final
@@ -116,6 +121,7 @@ let info = null;
 const EXAMPLES = {
   parity: ["Is A B B A even?", "Does ABBA have an odd number of A's?",
            "A B A: even or odd?", "Is ABBA not odd?", "Is A B C even?"],
+  zumi3: ["fire ka mal ho.", "to ke?", "to ku ba?", "ice ka bon ku.", "to ka gu.", "zu nu?", "po ba?", "ice ka ku bon."],
   zumi: ["nu?", "zu nu?", "si ki nu?", "fire ka mal ho.", "fire ke?", "fire ku ba?", "ice ke?", "nu zu?"],
 };
 
@@ -140,15 +146,48 @@ function badge(out) {
   return [a.toUpperCase(), "b-yes"];
 }
 
+function translate(said) {  // the fly's words in English, for the reader only
+  const g = {ya: "Yes.", na: "No.", hm: "Not sure.", o: "Okay.", e: "Huh?"}, pr = {};
+  info.props.forEach((pair) => Object.assign(pr, pair));
+  const out = [];
+  let cur = [];
+  for (const w of [...said.map((x) => x[0]), "."]) {
+    if (w !== ".") { cur.push(w); continue; }
+    if (!cur.length) continue;
+    const [a, b, ...rest] = cur;
+    if (cur.length === 1 && a in g) out.push(g[a]);
+    else if (cur.length === 1 && a in info.places) out.push(`At the ${info.places[a]}.`);
+    else if (a === info.pronoun && b === "ka" && rest.length) out.push(`It is ${rest.map((x) => pr[x] || x).join(", ")}.`);
+    else if (a === info.pronoun && cur.length === 3 && cur[2] === "ba") out.push(`Is it ${pr[b] || b}?`);
+    else out.push(`(${cur.join(" ")})`);
+    cur = [];
+  }
+  return out.join(" ");
+}
+
 function render(out) {
   const m = el("div", "msg fly");
-  const [b, cls] = badge(out);
-  m.append(el("span", "badge " + cls, b));
-  if (info.mode === "zumi") m.append(el("span", "gloss", out.gloss));
-  else m.append(document.createTextNode(out.reply));
+  if (info.mode === "zumi3") {
+    for (const [w, p] of out.said) {
+      const b = el("span", w === "." ? "gloss" : "badge " + ({e: "b-ref", hm: "b-unc", na: "b-no"}[w] || "b-yes"), w);
+      b.title = "the fly's probability for this word: " + p.toFixed(2);
+      m.append(b);
+    }
+    m.append(el("span", "gloss", " " + translate(out.said)));
+    const how = el("div", "trace");
+    how.append(el("span", "tok", "grammar fly: " + (out.grammar === "X" ? "not a sentence" : "sentence ok") +
+      " · told to say: " + (out.cues.map((c) => c.split(":")[1]).join(" ") || "nothing") +
+      (out.refuse ? " · refused: " + out.refuse.replace("_", " ") : "")));
+    m.append(how);
+  } else {
+    const [b, cls] = badge(out);
+    m.append(el("span", "badge " + cls, b));
+    if (info.mode === "zumi") m.append(el("span", "gloss", out.gloss));
+    else m.append(document.createTextNode(out.reply));
+  }
   if (out.trace && out.trace.length) {
     const t = el("div", "trace");
-    const name = (s) => info.mode === "zumi" ? s : (info.labels[s] || s);
+    const name = (s) => info.mode !== "parity" ? s : (info.labels[s] || s);
     t.append(el("span", "st", name(out.start)));
     for (const [x, s, c] of out.trace) {
       t.append(el("span", "tok", "→" + x + "→"));
@@ -170,7 +209,7 @@ function render(out) {
     m.append(t);
   }
   add(m);
-  if (info.mode === "zumi") ring(out.place);
+  if (info.mode !== "parity") ring(out.place);
 }
 
 function ring(here) {
@@ -186,7 +225,7 @@ function ring(here) {
 
 async function ask(text) {
   add(el("div", "msg you", text));
-  const pending = el("div", "msg fly why", info.mode === "zumi" ? "The fly is flying…"
+  const pending = el("div", "msg fly why", info.mode !== "parity" ? "The fly is flying…"
                                                                 : "The fly is running the sequence…");
   add(pending);
   $("send").disabled = true;
@@ -215,7 +254,7 @@ $("f").addEventListener("submit", (e) => {
 
 fetch("/info").then((r) => r.json()).then((i) => {
   info = i;
-  if (i.mode === "zumi") {
+  if (i.mode !== "parity") {
     document.title = "Zumi demo";
     document.querySelector("h1").textContent = "Zumi";
     $("sub").textContent = "Talk to a simulated fly mushroom body in Zumi. Tell it about anything " +
@@ -228,7 +267,10 @@ fetch("/info").then((r) => r.json()).then((i) => {
     $("legend-parity").hidden = true;
     $("ring").style.display = "flex";
     ring(i.place);
-    $("meta").textContent = `simulator: ${i.sim} · thresholds: ring ${i.threshold}, memory ${i.mem_threshold}`;
+    $("meta").textContent = i.mode === "zumi3"
+      ? `simulator: ${i.sim} · Zumi 3, Phase 7f · words sampled at temperature ${i.temperature}`
+      : `simulator: ${i.sim} · thresholds: ring ${i.threshold}, memory ${i.mem_threshold}`;
+    $("legend-zumi3").hidden = i.mode !== "zumi3";
   } else {
     $("meta").textContent = `simulator: ${i.sim} · tokens: ${i.inputs.join(", ")} · ` +
       `confidence threshold: ${i.threshold}`;

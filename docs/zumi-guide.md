@@ -14,6 +14,7 @@ Try it:
 python -m chatfly.zumi configs/phase6_zumi.yaml            # fast rate model
 python -m chatfly.zumi configs/phase6_zumi.yaml --sim spiking
 python -m chatfly.web configs/phase6_zumi.yaml               # in the browser: http://127.0.0.1:8000
+python -m chatfly.web configs/phase7f_zumi3.yaml             # Zumi 3: the fly says its own replies (section 4)
 ```
 
 ---
@@ -57,7 +58,7 @@ small · **ho**t · **ku**ld (cold) · **ra**ce · **lo**w and slow.
 | `fire ho ba?` | is fire hot? | `ya`, `na`, or `hm` |
 | `fire ke?` | what is fire (like)? | lists what it knows: `mal ho`, or `hm` |
 
-- `ka` means "is". After it come one or more properties: `sun ka gu ho bon.`
+- `ka` means "is". After it come one or more properties, in the order of the table (good/bad, big/small, hot/cold, fast/slow): `sun ka bon gu ho.` Zumi 3 requires this order; Zumi 2 also accepts other orders.
 - A thing can't be both sides of one pair: `fire ka ho ku.` gets `e`.
 - You can change your mind. `fire ka bon.` later makes the fly relearn: fire is now good.
   It keeps the other things it knew about fire.
@@ -188,6 +189,29 @@ everything after is `hm` until you say `bzz`.
 | `hm` | I'm not sure: never told, or I lost track |
 | `e` | huh? I don't understand that sentence |
 
+### Zumi 3: the fly says it in its own words
+
+In the Zumi 3 demo (`configs/phase7f_zumi3.yaml`, and the published web demo) the fly makes
+its own sentences, one word at a time (ADR 0012, Phase 7f). Zumi 3 adds:
+
+| you or the fly say | means |
+|---|---|
+| `to` | it: the last thing named. `fire ka mal ho.` then `to ke?` |
+| `to ka mal ho.` | it is bad and hot (the fly's answer to `ke?`) |
+| `na. to ka ho.` | no, it is hot (the fly may add what is true) |
+| `o. to gu ba?` | okay. Is it big? (the fly may ask back about something it doesn't know yet) |
+| `.` | ends one of the fly's sentences; a reply can have two |
+
+Properties must come in pair order (`fire ka mal ho.`, not `fire ka ho mal.`).
+
+How it speaks:
+- A grammar fly reads your sentence word by word.
+- The trip, memory and yes/no flies supply what to say.
+- A speaking fly picks each word from its output neurons, given the grammar state or its own previous word and the next thing to say.
+
+On held-out tests its replies were right 98.8% of the time. Its weak spot is long `ke?`
+lists, which it sometimes cuts short (`to ka mal.` instead of `to ka mal ho.`).
+
 ## 5. Exercises
 
 Start from a fresh conversation. Answers are below.
@@ -202,9 +226,9 @@ Start from a fresh conversation. Answers are below.
 
 <details><summary>Answers</summary>
 
-1. `sun ka gu ho bon.` (fly: `o`)
+1. `sun ka bon gu ho.` (fly: `o`; in Zumi 3 maybe `o. to ra ba?`, asking whether it is fast)
 2. `sun ku ba?` (fly: `na`)
-3. `snail ke?` (fly: `hm`), `snail ka pi lo.` (fly: `o`), `snail ke?` (fly: `pi lo`)
+3. `snail ke?` (fly: `hm`), `snail ka pi lo.` (fly: `o`), `snail ke?` (fly: `pi lo`; in Zumi 3: `to ka pi lo.`)
 4. `po` (nest → flower → pond)
 5. `na` (back twice from the nest = flower), then `ne` (it only imagined it)
 6. `e`: hot and cold are one pair, so a thing can't be both.
@@ -217,7 +241,7 @@ Start from a fresh conversation. Answers are below.
 ```
 things   any other word: fire, sugar, cat, moon …
 props    bon good / mal bad · gu big / pi small · ho hot / ku cold · ra fast / lo slow
-teach    thing ka prop…        fire ka mal ho.
+teach    thing ka prop…        fire ka mal ho.   (props in pair order)
 ask      thing prop ba?        fire ho ba?       thing ke?   fire ke?
 
 places   ne nest · fi flower · po pond          ring: ne →zu→ fi →zu→ po →zu→ ne
@@ -226,6 +250,7 @@ ask      nu = where?   <place> ba = there?    si … = what if      bzz = start 
 order    [bzz] [si] moves… [nu | place ba]
 
 fly      ya yes · na no · o ok · hm unsure · e huh?
+zumi 3   to = it (last thing named) · to ke?   fly: to ka mal ho. · o. to gu ba?
 ```
 
 ## 7. What is the fly, and what is the interface?
@@ -235,6 +260,7 @@ To keep the fly honest (`CLAUDE.md` principle 2), the parts are split like this:
 | who | does |
 |---|---|
 | **the interface** (`src/chatfly/zumi.py`) | splits your sentence into words by the grammar; turns each thing into its fixed input pattern; for `ka`, gives the fly dopamine in the right output pair; for questions, reads the fly's output and names it; feeds move words through the fly's loop; keeps or drops the result for `si`; resets on `bzz`. It **stores no facts** and never looks at the map of the ring. |
+| **Zumi 3 flies** (`src/chatfly/zumi3.py`) | a grammar fly tracks your sentence; a yes/no fly compares; a speaking fly picks every word of the reply. The interface routes each question to a fly, resolves `to`, and stops at the end word. |
 | **the fly** (simulated mushroom body) | *Things:* learns during the conversation, by dopamine-gated plasticity at its KC→MBON synapses, which side of each pair a smell goes with, and answers from those synapses. *Trip:* learned beforehand what each move does from each place, and computes every step itself. |
 
 Each property pair is its own set of KC→MBON synapses with two outputs, like separate

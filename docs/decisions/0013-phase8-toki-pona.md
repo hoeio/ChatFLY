@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e: replies 0.923, gate not passed (seed 117's grammar fly misses one transition); 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e: replies 0.923, gate not passed (seed 117's grammar fly misses one transition); 8e-2 (unrouted object memory) fails (0.926); 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -525,6 +525,16 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - "what" questions exact ≥ 0.95 on every seed;
   - mean ≤ 0.80 without the memory KC layers.
 - Expected to fail like 8d-2 (three-word unions). The object code has 8 choices, not a yes/no.
+
+#### 8e-2 result (`results/20261114-192532_phase8e2_chat_s0`): gate not passed
+
+- **Selection:** 64000 KCs, threshold 0.1 (mean reply 0.950). The other conditions gave 0.913–0.946.
+- **Test** (seeds 120–124):
+  - "what" questions 0.926 (min 0.875), against the 0.95 gate;
+  - unknown subjects 0.850 (min 0.688): the unrouted memory answers about subjects it never heard, because they share the predicate's smell;
+  - all replies 0.936.
+  - Without the memory KC layers, "what" questions fall to 0.265.
+- **Verdict:** closer than 8d-2, but replacing the object routing with a three-word conjunction still fails, even at 64000 KCs (25 times a hemisphere). Both predicate routings stay as glue.
 
 ## Consequences
 

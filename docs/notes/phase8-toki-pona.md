@@ -97,3 +97,17 @@ Details: ADR 0013.
 ## 8d-2: memory without routing — fails
 
 The memory fly smells subject and predicate together, with one yes/no output, replacing the routing from predicate word to output pair. On test seeds 110–114, replies are 0.815 (taught questions 0.728). The fly declines about 31% of the facts (low confidence) but answers none wrong, and more KCs do not help. The routing stays as glue.
+
+## 8e: a whole conversation — gate not passed
+
+300 turns per seed: yes/no and object facts (with changes of mind), yes/no and "what" questions, unknown subjects. On test seeds 115–119:
+- replies are exact 0.923 (min 0.730); "what" questions 0.974; after a change of mind 0.988;
+- without the memory KC layers, 0.470; without the speaker's, 0.000.
+
+The failures:
+- Seed 117: the grammar fly, retrained on the larger 8e grammar with 8b's settings, misses S0 + mi → MI, so "mi sona ala" breaks (unknown subjects 0.0).
+- Seed 119: yes/no memory under load, plus some speaker errors.
+
+## 8e-2: object memory without routing — fails
+
+"What" questions reach 0.926 (min 0.875) even at 64000 KCs, and unknown subjects 0.850. The object routing stays as glue.

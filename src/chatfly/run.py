@@ -25,6 +25,7 @@ from chatfly.grammar import exp_grammar
 from chatfly.parity import exp_parity, exp_parity_table
 from chatfly.sim import SIMULATORS
 from chatfly.speak import exp_speak_baselines, exp_speak_fly
+from chatfly.talk import exp_talk
 from chatfly.zumi import exp_zumi, exp_zumi_memory
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -101,7 +102,7 @@ EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning, "parity": e
                "parity_table": exp_parity_table, "fsm_sweep": exp_fsm_sweep,
                "multi_fly": exp_multi_fly, "chat": exp_chat, "zumi": exp_zumi,
                "zumi_memory": exp_zumi_memory, "speak_baselines": exp_speak_baselines,
-               "speak_fly": exp_speak_fly, "grammar": exp_grammar}
+               "speak_fly": exp_speak_fly, "grammar": exp_grammar, "talk": exp_talk}
 
 
 def main(argv=None) -> Path:

@@ -96,6 +96,24 @@ The user asked to raise the bar to "GPT-2 level language use". In Zumi this mean
   - each control's mean utterance accuracy ≤ 0.90.
 - Thresholds are chosen per run on select seeds, so the controls get the same tuning.
 
+## Decisions (7d)
+
+- **The user chose option 1 after 7c** (2026-11-14): keep the word-routed grammar fly and record that grammar tracking rests on the routed readout, not on the KC layer.
+- **Content comes from flies** (`src/chatfly/talk.py`):
+  - the ring fly (Phase 6) and the memory fly (Zumi 2), driven through `zumi.Conversation` as in the Zumi 2 chat;
+  - a new **comparator fly**: (asked word, the fly's answer) → ya / na / hm, so the interface does not compare words. It has a routed readout, as in 7c.
+- **Speaker:** the split speaker smells (grammar state, first content word), then (previous word, next content word). Content words are the ring's place, the comparator's answer, the memory's known properties in pair order, `hm` when a fly is unsure, and `-` for none.
+- **Interface rules:** which fly answers which question (by the parse), the pair order of the "what" list, and stopping at EOS.
+- **Nothing is tuned in 7d:** the grammar threshold is 7c's; the ring and memory thresholds are Phase 6's. A check on selection seed 10 (30 dialogues) gave exact 0.998.
+- **Controls:**
+  - `shuffled`: the ring, memory and comparator teachers are shuffled;
+  - `no_kc_memory`: the memory rule on PNs.
+- **Gate (set before the test run):** on every test seed:
+  - exact ≥ 0.95;
+  - content exact (ask / what / where / yes-no pooled) ≥ 0.95;
+  - appropriate ≥ 0.95 and grammatical ≥ 0.95;
+  - each control's mean content exact ≤ 0.70.
+
 ## Consequences
 
 - 7b is compared with these numbers (`docs/notes/phase7-speaking.md`). The fly earns credit

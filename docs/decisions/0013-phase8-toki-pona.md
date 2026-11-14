@@ -830,7 +830,7 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - sparser word odors (fewer active PNs per word, so a three-word union is less dense);
   - the FlyWire-sized PN layer (340 PNs, 8a-2).
   - A separate PN channel for the predicate (the pointer-fly trick) does nothing here, since predicate words are never subject words.
-- **Probe on selection seeds only** (, no test seeds used). The memory alone was told 90 facts, as in a conversation, about 40 subjects and 4 predicates; unknown subjects were asked about every predicate.
+- **Probe on selection seeds only** (`results/20261115-000821_phase8i_probe_s0`, no test seeds used). The memory alone was told 90 facts, as in a conversation, about 40 subjects and 4 predicates; unknown subjects were asked about every predicate.
 
   | PNs, active fraction | KCs, threshold | seed 10: right and confident at 0.1 / 0.2; unknown declined at 0.1 / 0.2 | seed 11, same |
   |---|---|---|---|

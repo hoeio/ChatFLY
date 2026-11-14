@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) in progress, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -141,6 +141,24 @@ Means over seeds 10–14 at V = 112. The minimum is in brackets.
   - step accuracy ≥ 0.99 and sentence exact ≥ 0.95 on every test seed;
   - mean sentence exact ≤ 0.70 for both controls (no KC layer, shuffled teacher).
 - **If it fails,** the result is reported and the user decides. Criteria are not changed.
+
+#### 8a-2 selection result (`results/20261114-154242_phase8a2_capacity_select_s0`)
+
+Sentence exact per seed (10–19) at V = 112, `k2n20`:
+
+| PNs, density, KCs, threshold | mean | seeds ≥ 0.95 | per seed |
+|---|---|---|---|
+| **150, 0.15, 16000, 850** | **0.751** | 5/10 | 1.00 0.51 0.99 0.53 0.53 0.98 1.00 1.00 0.49 0.48 |
+| 340, 0.15, 16000, 850 | 0.660 | 3/10 | 0.52 0.52 0.49 1.00 0.54 1.00 0.52 0.53 1.00 0.49 |
+| 340, 0.10, 16000, 650 | 0.460 | 0/10 | all 0.39–0.51 (steps 0.975) |
+| 340, 0.065, 16000, 650 | 0.742 | 5/10 | 0.50 0.50 0.49 0.98 0.98 0.48 0.51 0.99 1.00 0.99 |
+| 340, 0.065, 32000, 650 | 0.704 | 4/10 | 0.52 1.00 0.49 0.54 1.00 0.48 0.52 1.00 1.00 0.49 |
+
+Controls, every condition: no KC layer steps 0.26–0.35, sentences 0.00; shuffled steps ≤ 0.01, sentences 0.00.
+
+- **The hypothesis is rejected** by its own criterion: no 340-PN condition beats 150 PNs. The rule picks 150 PNs, which is 8a's tested condition, so no new test run is made.
+- **What the data say instead.** Every condition is bimodal: a seed gives about 1.0 or about 0.5, and which seeds fail changes with the condition. About 0.5 means one of the two end contexts ((PRED, `-`) or (OBJ, `-`)) is lost, and with it every sentence of that shape. This looks like the Phase 4 majority conflict (one EOS context against 112 contexts with the same state token), decided by chance in each network, not like crowding that more PNs would remove.
+- 8a-2 does not pass. The next step is the user's decision.
 
 ## Consequences
 

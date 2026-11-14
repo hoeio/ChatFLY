@@ -91,7 +91,9 @@ class Chat:
         mc = dc["memory_fly"]
         c = copy.deepcopy(cfg)
         c["mb"]["n_kc"], c["rate"]["kc_theta"] = mc["n_kc"], mc["kc_theta"]
-        self.mem = phrase_memory(kind, c, seed, self.preds, "no_kc" if "memory_no_kc" in controls else None)
+        self.routed = mc.get("routing", "pair") == "pair"  # "none" (8d-2): subject + predicate smelled together
+        self.mem = phrase_memory(kind, c, seed, self.preds if self.routed else ["fact"],
+                                 "no_kc" if "memory_no_kc" in controls else None)
         self.mem_thr = mc["threshold"]
         sc = dc["speaker"]
         c = copy.deepcopy(cfg)
@@ -126,11 +128,13 @@ class Chat:
         """A statement teaches the memory; a question gets a spoken reply (list of words)."""
         s, subj, pred = self.read(words)
         if s in ("P", "PN") and pred in self.preds:
-            self.mem.teach(" ".join(subj), pred if s == "P" else f"{pred}_ala")
+            key, prop = (" ".join(subj), pred) if self.routed else (" ".join(subj + [pred]), "fact")
+            self.mem.teach(key, prop if s == "P" else f"{prop}_ala")
             return None
         if s != "Q" or pred not in self.preds:
             return ["?"]
-        side, conf = self.mem.ask(" ".join(subj), self.preds.index(pred))
+        side, conf = (self.mem.ask(" ".join(subj), self.preds.index(pred)) if self.routed
+                      else self.mem.ask(" ".join(subj + [pred]), 0))
         plan = UNKNOWN if side is None or conf < self.mem_thr else subj + [pred] + (["ala"] if side else [])
         return self.speak(plan)
 
@@ -183,6 +187,18 @@ def exp_chat8d(cfg: dict, seed: int) -> dict:
     cfg, out = merged(cfg), []
     dc = cfg["chat8d"]
     runs = [()] + [(c,) for c in dc["controls"]]
+    chosen = None
+    if "memory_conds" in dc:  # 8d-2: the memory fly's KC setting chosen on select seeds (ties: listed order)
+        def with_mem(c):
+            return {**cfg, "chat8d": {**dc, "memory_fly": {**dc["memory_fly"], **c}}}
+        with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
+            sel = list(ex.map(_djob, [(cfg["simulators"][0], with_mem(c), s, ()) for c in dc["memory_conds"]
+                                      for s in cfg["select_seeds"]]))
+        n = len(cfg["select_seeds"])
+        score = [float(np.mean([r["reply_exact"] for r in sel[i * n:(i + 1) * n]])) for i in range(len(dc["memory_conds"]))]
+        chosen = dc["memory_conds"][max(range(len(score)), key=lambda i: (round(score[i], 3), -i))]
+        log.info("select scores %s -> %s", score, chosen)
+        cfg = with_mem(chosen)
     for kind in cfg["simulators"]:
         with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
             res = list(ex.map(_djob, [(kind, cfg, s, r) for r in runs for s in cfg["seeds"]]))
@@ -192,5 +208,5 @@ def exp_chat8d(cfg: dict, seed: int) -> dict:
             rows.append({"controls": list(r), **{k: [float(np.mean([x[k] for x in rs])), float(np.min([x[k] for x in rs]))]
                          for k in ("statements_read", "reply_exact", "taught_exact", "unknown_exact", "grammatical")}})
             log.info("%s summary %s", kind, rows[-1])
-        out.append({"simulator": kind, "rows": rows, "runs": res})
+        out.append({"simulator": kind, "chosen_memory": chosen, "rows": rows, "runs": res})
     return {"chat8d": out}

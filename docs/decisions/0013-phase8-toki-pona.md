@@ -449,6 +449,17 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
 - **Gate not passed, by the class-fly control** (0.937 > 0.80). This is the 8b-3 finding again, which the user accepted: the class step does not need its KC layer. On seed 107, 30% of words are misread without it.
 - **H4 supported** for this exchange: with a closed vocabulary, every reply word comes from the speaker fly, with content from the memory fly and no copying.
 
+### 8d-2: the memory fly without routing (the user's standing request; written before the run)
+
+- **Glue replaced:** in 8d the predicate word selects the memory fly's output pair (routing). In 8d-2 the memory fly smells the subject words and the predicate together (a three-word union) and has one yes/no pair, so the KC conjunction must keep the facts apart.
+- **Expectation:** three-word unions behaved like 8c's level 2 (0.82 at 16000 KCs), so more KCs may be needed.
+- **Conditions** (memory KCs, threshold 850), in tie order: 16000, 32000, 64000. The other flies are as in 8d.
+- **Selection:** the highest mean reply exact on seeds 10–14.
+- **Gate** (new test seeds 110–114, `configs/phase8d2_chat.yaml`):
+  - reply exact ≥ 0.95 on every seed;
+  - mean ≤ 0.80 for the memory fly without its KC layer.
+- **Biology:** 64000 KCs is 25 times a hemisphere.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

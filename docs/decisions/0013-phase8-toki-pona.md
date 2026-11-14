@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e in progress; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -468,6 +468,34 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - without the memory fly's KC layer, 0.373.
 - **Diagnosis** (seed 110, after the gate, nothing changed): the unrouted memory declines 31% of taught facts (confidence below 0.2) and answers none wrong. Three-word unions spread each fact over more shared KCs, and more KCs do not help (16000 to 64000), like 8c's level 2.
 - **Verdict:** replacing the predicate routing with a KC conjunction fails at this rule. The routing stays as recorded glue, and the 8d pipeline (routed memory) is kept.
+
+## Decisions (8e: a whole conversation; written before the run)
+
+- **Conversation** (`tokipona_chat._ejob`): 300 turns per test seed, in random order with these probabilities:
+  - teach a yes/no fact (0.3): "S li P" / "S li P ala";
+  - teach an object fact (0.2): "S li P e O";
+  - ask yes/no (0.2): "S li P anu seme?";
+  - ask what (0.2): "S li P e seme?", reply "S li P e O";
+  - ask about a never-mentioned subject (0.1): reply "mi sona ala".
+
+  Facts may be re-taught with a new value (a change of mind). Questions about changed facts are scored separately. Subjects are 40 (head + modifier); there are 4 yes/no predicates, 2 object predicates and 8 objects.
+- **8e grammar** (`grammar_e`): 8d's plus `e`: P + `e` → E; E + word → O; E + `seme` → OQ. 14 states over 7 classes.
+- **New fly: object memory** (`ObjectMemory`).
+  - (subject phrase, predicate) → object word, as a `k2n20` MBON code over the 8 objects (8a's H1 code).
+  - The predicate selects the weight set: the same routing glue as the yes/no memory.
+  - Teaching depresses every group outside the object's code, 5 times. Asking reads the best object; it declines when (top − second) / top is below the threshold.
+- **The other flies keep their 8d settings.**
+  - The speaker's table gains (P, object) → `e`, (E, object) → object, and (O, `-`) → EOS.
+  - The class and grammar flies are retrained on the 8e classes and grammar with their 8d settings.
+- **Check on selection seed 10:** reply exact 1.000 over 147 questions. 8d is unchanged by the code (seed 10: 0.992 as before).
+- **Selection** (seeds 10–14): the object memory's KC count (16000, 32000) × threshold (0.05, 0.1, 0.2), in that tie order. The highest mean reply exact wins.
+- **Controls:**
+  - both memory flies without their KC layers;
+  - the speaker without its KC layer.
+- **Gate** (test seeds 115–119):
+  - reply exact ≥ 0.95 on every seed, over all questions;
+  - mean ≤ 0.80 for each control.
+- **Glue, new:** routing the object memory by predicate. A fly replacement (unrouted, subject + predicate smelled together) follows the test, as in 8d-2.
 
 ## Consequences
 

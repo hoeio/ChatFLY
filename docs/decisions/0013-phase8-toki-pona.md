@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -459,6 +459,15 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - reply exact ≥ 0.95 on every seed;
   - mean ≤ 0.80 for the memory fly without its KC layer.
 - **Biology:** 64000 KCs is 25 times a hemisphere.
+
+#### 8d-2 result (`results/20261114-184338_phase8d2_chat_s0`): gate not passed
+
+- **Selection** (mean reply exact): 0.782 (16000), 0.793 (32000), 0.793 (64000). The rule picks 32000.
+- **Test** (seeds 110–114):
+  - reply exact 0.815 (min 0.808), taught questions 0.728, unknown subjects 0.990;
+  - without the memory fly's KC layer, 0.373.
+- **Diagnosis** (seed 110, after the gate, nothing changed): the unrouted memory declines 31% of taught facts (confidence below 0.2) and answers none wrong. Three-word unions spread each fact over more shared KCs, and more KCs do not help (16000 to 64000), like 8c's level 2.
+- **Verdict:** replacing the predicate routing with a KC conjunction fails at this rule. The routing stays as recorded glue, and the 8d pipeline (routed memory) is kept.
 
 ## Consequences
 

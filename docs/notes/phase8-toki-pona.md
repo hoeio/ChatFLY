@@ -93,3 +93,7 @@ The user teaches 80 facts ("jan pona li suli [ala]") and asks 120 questions ("..
 - Without the class fly's KC layer: 0.937. This is above the 0.80 control limit, so the gate is formally not passed, as in 8b-3.
 
 Details: ADR 0013.
+
+## 8d-2: memory without routing — fails
+
+The memory fly smells subject and predicate together, with one yes/no output, replacing the routing from predicate word to output pair. On test seeds 110–114, replies are 0.815 (taught questions 0.728). The fly declines about 31% of the facts (low confidence) but answers none wrong, and more KCs do not help. The routing stays as glue.

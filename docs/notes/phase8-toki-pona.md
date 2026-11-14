@@ -61,3 +61,10 @@ The FSM has 14 states over 4 word classes (mi/sina, other content words, `li`, `
 - Correction: the pre-run check on seed 10 used threshold 450, not 650 as first written.
 
 Details: ADR 0013.
+
+## 8b-2: the tokenizer as a fly — both ways fail
+
+- **A, class fly in series:** class accuracy 0.953 and utterance accuracy 0.881 on test seeds 90–94 (gate: 1.0 and 0.99). The failing words are mostly silent: a single word's 22 PNs cannot drive KCs at the 4-of-5-claw threshold chosen for two-token stimuli.
+- **B, grammar fly on words:** 1126 transitions; at best 0.62 utterance accuracy, even with the full table; most valid sentences are refused. Interference grows with the number of contexts, and nothing generalizes across words.
+
+Details: ADR 0013.

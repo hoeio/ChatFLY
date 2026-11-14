@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly) in progress, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -296,6 +296,37 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - the smallest corpus where `dedup` does, if any.
 
   Expected: the table works with enough KCs. `dedup` is limited by coverage, because unseen (state, word) pairs read as dead.
+
+### 8b-2 results: both fail
+
+**A** (`results/20261114-171133_phase8b2_classfly_s0`):
+- **Selection** (mean utterance accuracy): (2000, 650) 0.900 with no balance and 0.900 with `class` balance; (16000, 850) 0.455 either way. The rule picks (2000, 650, none).
+- **Test** (seeds 90–94):
+
+  | | class accuracy, mean (min) | utterance (class fly → grammar fly), mean (min) |
+  |---|---|---|
+  | class fly | 0.953 (0.930) | 0.881 (0.799) |
+  | no KC layer | 0.965 | 0.486 |
+  | shuffled teacher | 0.218 | 0.360 |
+  | (8b tokenizer, same grammar fly) | | 1.000 |
+
+- **Gate not passed.**
+- **Diagnosis** (after the gate, nothing changed): the wrong words are mostly silent, not misclassified. On seeds 90 and 91, 3 words each give no class at all (for example `pan`, `pimeja`, `sin`). One word is a single token of 22 PNs. At threshold 650 a KC needs 4 of its 5 claws inside that set, so some words drive no KCs. The thresholds were set for two-token stimuli. The same explains (16000, 850) doing worse. Class balance adds a few misclassifications (for example `walo` → `B`).
+
+**B** (`results/20261114-171206_phase8b2_words_s0`), test seeds 90–94:
+
+| run | step, mean (min) | utterance, mean (min) | good accepted | bad rejected |
+|---|---|---|---|---|
+| table, 16000, 850 (chosen) | 0.949 (0.928) | 0.617 (0.442) | 0.419 | 0.908 |
+| table, 2000, 650 | 0.927 | 0.453 | 0.069 | 0.965 |
+| table, 16000, 650 | 0.966 | 0.466 | 0.046 | 0.956 |
+| dedup 500 / 2000 / 8000 sentences, 16000, 850 | 0.943 / 0.982 / 0.984 | 0.690 / 0.606 / 0.629 | 0.27–0.54 | 0.93–0.99 |
+| controls: no KC layer / shuffled | 0.43 / 0.31 | 0.36 / 0.36 | 0.00 | 1.00 |
+
+- 500 sentences show 843 of the 1126 valid transitions; 2000 show 1102; 8000 show all.
+- **No run reaches 0.99.** Even the full table gives 0.62. Steps are 0.93–0.98, and a sentence of 5–10 words compounds the error. Most valid sentences are refused.
+- With 1126 contexts this is 8a's interference at a larger size: 8a needed 16000 KCs at threshold 850 and balanced teaching for 674 contexts. And the fly cannot share what it learns across words.
+- So without the tokenizer's classes, the current fly does not track the grammar.
 
 ## Consequences
 

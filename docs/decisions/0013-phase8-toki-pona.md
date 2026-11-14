@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; 8b in progress, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -221,7 +221,7 @@ Controls with every schedule: no KC layer steps 0.21–0.28, sentences 0.00; shu
   - utterance accuracy (final state, closed loop);
   - good accepted and bad rejected.
 - **Check on selection seed 10 before fixing the grid:**
-  - Default KC layer (2000 KCs, threshold 650): utterance accuracy 0.51–0.74 for every source.
+  - Default KC layer: utterance accuracy 0.51–0.74 for every source. **Correction after the run:** this was the base config's threshold 450 (3 of 5 claws), not 650 as first written here. (2000, 650) was not checked before the run.
   - 16000 KCs, threshold 650 or 850, `table`: 1.000.
   - So the KC count and threshold join the candidates: (2000, 650), (16000, 650), (16000, 850), each with all four sources.
 - **Selection** on seeds 10–14 (dev split).
@@ -235,6 +235,34 @@ Controls with every schedule: no KC layer steps 0.21–0.28, sentences 0.00; shu
   - mean utterance accuracy ≤ 0.90 for each control.
 - **H5 verdict:** `dedup` vs `raw` at the main run's KC setting, on the test seeds. It is rejected if `dedup` does not beat `raw` on step accuracy.
 - **Biology:** as in 8a, 16000 KCs is 6 times a hemisphere. 2000 KCs is about the real count.
+
+### 8b result (`results/20261114-170227_phase8b_grammar_s0`): gate passed
+
+- **Selection** (seeds 10–14, mean utterance accuracy):
+  - `table` and `table_bal` reach 1.000 at every KC setting, and `dedup` 0.998.
+  - `raw` reaches 0.942–0.982.
+  - The routed reference reaches 0.950.
+  - The rule picks the first in order: **one fly, `table`, 2000 KCs, threshold 650**.
+- **Test** (seeds 90–94; mean, minimum in brackets):
+
+  | run | step | utterance | good accepted | bad rejected |
+  |---|---|---|---|---|
+  | **main: one fly, table, 2000 KCs, 650** | **1.000 (1.000)** | **1.000 (1.000)** | 1.000 | 1.000 |
+  | control: no KC layer | 0.607 | 0.358 | 0.000 | 1.000 |
+  | control: shuffled teacher | 0.550 | 0.299 | 0.000 | 0.83 |
+  | `dedup`, 2000, 650 | 0.979 (0.964) | 0.997 (0.992) | 0.995 | 1.000 |
+  | `table_bal`, 2000, 650 | 1.000 | 1.000 | 1.000 | 1.000 |
+  | `raw`, 2000, 650 | 0.807 (0.786) | 0.928 (0.768) | 0.950 | 0.915 |
+  | `raw`, 16000, 850 | 0.750 | 0.933 (0.763) | 0.966 | 0.907 |
+  | routed (7c design), table, 2000, 650 | 0.975 | 0.952 (0.762) | 0.935 | 1.000 |
+
+- **Gate passed:** main step and utterance accuracy are 1.000 on every test seed, and both controls are ≤ 0.36.
+- **H2 supported** for this subset: 14 states, and the KC conjunction of (state, class) learns them **without routing**, at the real KC count (2000) and 4-of-5-claw sparsity. In 7c the routed readout did the work; here the no-KC control fails (0.36). The difference from 7c is the input side: 4 word classes instead of 21 words, and a sparser KC threshold (650, not 450).
+- **H5 supported:** `dedup` beats `raw` at the same budget (step 0.979 vs 0.807; utterance 0.997 vs 0.928). Raw frequencies under-teach rare transitions, as in 7c and 8a. `dedup` misses 0–2 of the 26 transitions that the 500 training sentences never show (mi/sina as a modifier is rare). Those transitions read as X, so step accuracy stays below 0.99.
+- **Limits:**
+  - The tokenizer gives word classes, so the fly never sees which content word it is (glue: classing).
+  - The subset has no `pi`, `la`, `o`, questions or several predicates.
+  - The rate model only.
 
 ## Consequences
 

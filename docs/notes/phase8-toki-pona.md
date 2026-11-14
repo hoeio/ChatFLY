@@ -50,3 +50,14 @@ Rejected at selection (seeds 10–19, `results/20261114-154242_phase8a2_capacity
 ## 8a-3: frequency-balanced teaching — gate passed
 
 Each rare context is taught as often as the majority sharing its state token ((PRED, `-`) → EOS 112 times per epoch). Selection seeds 10–19: sentence exact 0.990 (vs 0.751 without balance; balancing cue tokens too gave 0.940). Test seeds 80–84: steps ≥ 0.997 and sentence exact ≥ 0.980 on every seed; no-KC and shuffled controls ≤ 0.002. Needs 16000 KCs at an all-claws threshold; the schedule is teacher glue. Details: ADR 0013.
+
+## 8b: grammar fly for the subset — gate passed
+
+The FSM has 14 states over 4 word classes (mi/sina, other content words, `li`, `e`), with up to two modifiers per phrase. One fly, with no routing, smells (state, class) together. Only valid transitions are taught; low confidence reads as dead.
+- On test seeds 90–94 (2000 KCs, threshold 650, table teaching), step and utterance accuracy are 1.000 on every seed.
+- Without the KC layer, 0.36; with a shuffled teacher, 0.30.
+- Teaching each corpus transition once (`dedup`) beats frequency-weighted corpus teaching (`raw`) at the same budget: step 0.979 vs 0.807 (H5).
+- The 7c routed design does worse here (0.952).
+- Correction: the pre-run check on seed 10 used threshold 450, not 650 as first written.
+
+Details: ADR 0013.

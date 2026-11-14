@@ -766,6 +766,16 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - The pointer fly needs its KC layer and works on every seed.
   - The odor-based yes/no decision is the weak part. It is right on most seeds, but under load it is less reliable than the threshold it replaced.
 
+### 8h-3: a speaker robust to weak yes/no odors (the user chose option 2, then option 1 if it fails; written before the run)
+
+- **Cause addressed (8h-2, seed 187):** under load the yes/no memory's odor gets weak (yes about 0.4, doubt about 0.6), and the speaker misreads polarity.
+- **Two changes tried:**
+  - a heavier practice load: 240 facts instead of 120, about 2.5 times a conversation's yes/no load, so weak odors are among those taught;
+  - a larger speaker KC layer: 32000 instead of 16000.
+- **Selection** on 20 select seeds (10–29), since the failure is on about 1 seed in 15 (`configs/phase8h3_chat.yaml`). The four combinations are ranked by the **worst seed's** reply exact, then the mean, then the listed order (8h-2's setting first).
+- **Decision rule, fixed now:** if the chosen setting's worst select seed is below 0.95, option 2 has failed, and option 1 follows on new seeds 205–214. Option 1 is the yes/no decision back to the threshold glue, keeping the role and pointer flies. Test seeds 195–204 are run in the same job and count as used either way.
+- **Test** (if the rule passes): seeds 195–204, with 8h-2's gate.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

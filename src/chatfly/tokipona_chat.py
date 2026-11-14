@@ -426,7 +426,10 @@ def exp_chat8d(cfg: dict, seed: int) -> dict:
             sel = list(ex.map(job, [(cfg["simulators"][0], with_set(c), s, ()) for c in conds for s in cfg["select_seeds"]]))
         n = len(cfg["select_seeds"])
         score = [float(np.mean([r["reply_exact"] for r in sel[i * n:(i + 1) * n]])) for i in range(len(conds))]
-        chosen = conds[max(range(len(score)), key=lambda i: (round(score[i], 3), -i))]
+        worst = [float(np.min([r["reply_exact"] for r in sel[i * n:(i + 1) * n]])) for i in range(len(conds))]
+        by_min = dc.get("select", {}).get("rule") == "min"  # 8h-3: the worst select seed first, then the mean
+        chosen = conds[max(range(len(score)), key=lambda i: ((round(worst[i], 3),) if by_min else ()) + (round(score[i], 3), -i))]
+        log.info("select worst seeds %s", worst)
         log.info("select scores %s -> %s", score, chosen)
         cfg = with_set(chosen)
     for kind in cfg["simulators"]:

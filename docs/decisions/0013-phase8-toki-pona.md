@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; 8b-3 in progress, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -327,6 +327,21 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
 - **No run reaches 0.99.** Even the full table gives 0.62. Steps are 0.93–0.98, and a sentence of 5–10 words compounds the error. Most valid sentences are refused.
 - With 1126 contexts this is 8a's interference at a larger size: 8a needed 16000 KCs at threshold 850 and balanced teaching for 674 contexts. And the fly cannot share what it learns across words.
 - So without the tokenizer's classes, the current fly does not track the grammar.
+
+### 8b-3: the class fly with single-word settings (the user chose option 1 after 8b-2; written before the run)
+
+- **Hypothesis.** 8b-2 A failed because single words were silent at threshold 650. A threshold or token density made for single-word stimuli gives every word a class, and the pipeline then reaches 8b's level.
+- **Conditions** (`configs/phase8b3_classfly.yaml`), in tie order. The grammar fly is unchanged (8b's run, threshold 0.1).
+  - 2000 KCs, threshold 450 (3 of 5 claws, the base default), no balance;
+  - 2000 KCs, threshold 550, no balance;
+  - 2000 KCs, threshold 650, word tokens at density 0.3 (44 PNs);
+  - 2000 KCs, threshold 450, `class` balance.
+- **Selection:** as 8b-2 A, on seeds 10–14 (dev split).
+- **Gate:** as 8b-2 A, on new test seeds 95–99:
+  - class accuracy 1.0 and pipeline utterance accuracy ≥ 0.99 on every seed;
+  - mean utterance accuracy ≤ 0.90 for each control.
+  - A passing no-KC control is recorded as "the class step does not need the KC layer".
+- The classes are still the dictionary's labels (designer knowledge in the teacher).
 
 ## Consequences
 

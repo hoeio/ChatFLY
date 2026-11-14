@@ -401,6 +401,7 @@ def _cjob(args):
     g_run = cc["grammar_run"]
     c = copy.deepcopy(cfg)
     c["mb"]["n_kc"], c["rate"]["kc_theta"] = cond["n_kc"], cond["kc_theta"]
+    c["tokens"]["pn_active_frac"] = cond.get("pn_active_frac", c["tokens"]["pn_active_frac"])
     words = words_for(gc["vocab"], seed)
     cf = ClassFly(kind, c, seed, words, control, cond["balance"])
     class_acc = float(np.mean([cf(w) == k for w, k in zip(cf.words, classes(cf.words))]))

@@ -327,7 +327,7 @@ class ObjectMemory:
         c["mb"]["n_kc"], c["rate"]["kc_theta"] = om["n_kc"], om["kc_theta"]
         self.pats = token_patterns(c, np.random.default_rng([seed, 8, 15]))
         sim = SIMULATORS[kind](c, seed + 5 * rs["fly"], noise_seed=seed * rs["noise"] + 11)
-        self.slots = ([PNDirect(sim, c, n, np.random.default_rng([seed, 8, 16, i]), kind == "spiking") for i in preds]
+        self.slots = ([PNDirect(sim, c, n, np.random.default_rng([seed, 8, 16, i]), kind == "spiking") for i in range(len(preds))]
                       if control == "no_kc" else [WeightSlot(sim) for _ in preds])
         self.n, self.dur, self.n_teach, self.thr = n, c["protocol"]["duration_ms"], om["n_teach"], om["threshold"]
 

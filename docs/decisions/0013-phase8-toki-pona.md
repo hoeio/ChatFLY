@@ -80,6 +80,48 @@ come later.
   - If it fails but one-hot passes, H1 is not supported. The vocabulary is still learnable with one group per word, and the user decides whether to continue with it.
   - If both fail, the output vocabulary is the barrier, and Toki Pona stops at 8a.
 
+### First selection run, and the grid extension (before any test run)
+
+- **First run** (`results/20261114-144525_phase8a_capacity_select_s0`, KC threshold 650): everything collapsed as V grew. Sentence exact, mean:
+
+  | coding | V = 25 | V = 60 | V = 112 |
+  |---|---|---|---|
+  | one-hot | 0.72 | 0.38 | 0.05 |
+  | `k2n20` | 0.69 | 0.24 | 0.01 |
+  | `k3n12` | 0.55 | 0.10 | 0.02 |
+
+  2000 vs 8000 KCs made almost no difference.
+- **Diagnosis (selection seeds 10–11):** at threshold 650 a KC fires when 4 of its 5 claws are on, and about 2.8% of KCs fire per context, whatever the KC count. At V = 112 each KC is shared by about 19 of the 674 contexts, so more KCs do not reduce interference. At threshold 850 (all 5 claws, about 0.3% of KCs):
+
+  | KCs | seed 10, one-hot | seed 10, `k2n20` |
+  |---|---|---|
+  | 8000 | 0.98 | 0.93 |
+  | 16000 | 1.00 | 1.00 |
+  | 32000 | 1.00 | 1.00 |
+
+  Seed 11 stays at 0.52. Its one failing context is (PRED, `-`) → EOS, which is outvoted by the 112 (PRED, word) → `e` contexts: their PN patterns share 6 PNs (about 3 expected) and only 11 KCs fire.
+- **Decision:** the selection grid gets the KC threshold as part of the KC axis: (2000, 650), (8000, 650), (8000, 850), (16000, 850), (32000, 850). The selection rule and the gate stay as written.
+- **Biology:** 16000–32000 KCs is 6–12 times the 2,597 KCs of one FlyWire hemisphere (`docs/04-research-notes.md`), and an all-claws threshold is sparser than the 5–15% target of Phase 1. If the gate passes only there, it says what the circuit would need, not that the fly has it.
+
+### Selection result (`results/20261114-145745_phase8a_capacity_select_s0`)
+
+Means over seeds 10–14 at V = 112. The minimum is in brackets.
+
+| coding | KCs, threshold | step | sentence |
+|---|---|---|---|
+| one-hot | 2000, 650 | 0.63 | 0.03 |
+| one-hot | 16000, 850 | 0.999 | 0.719 (0.518) |
+| **`k2n20`** | **16000, 850** | **0.998** | **0.712 (0.512)** |
+| `k3n12` | 16000, 850 | 0.993 | 0.709 (0.502) |
+| any coding, no KC layer | | 0.25–0.31 | 0.00 |
+| any coding, shuffled | | ≤ 0.01 | 0.00 |
+
+- **Chosen** by the rule (≤ 24 groups, best mean sentence exact): `k2n20`, 16000 KCs, threshold 850. The one-hot reference is at the same settings.
+- **Finding before the test:**
+  - Sentence exact is 1.00 on seeds 10 and 14, and about 0.5 on 11–13.
+  - Steps are ≥ 0.996 on every seed, so the remaining error is one end-of-sentence context ((PRED, `-`) or (OBJ, `-`)). Its few KCs are shared with the many (state, word) contexts.
+  - With 113 cue tokens of 22 PNs among 150 PNs, every PN is in about 17 patterns, so the empty cue `-` cannot stay distinct. This is input crowding in PN space, and it is expected to fail the "every seed ≥ 0.95" gate. The gate is not changed.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

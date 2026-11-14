@@ -130,7 +130,8 @@ class Speaker:
 
 
 def _job(args):
-    kind, cfg, seed, v, coding, n_kc, control = args
+    kind, cfg, seed, v, coding, (n_kc, theta), control = args
+    cfg = {**cfg, "capacity": {**cfg["capacity"], "kc_theta": theta}}
     t0, cc = time.time(), cfg["capacity"]
     words = words_for(v, seed)
     sp = Speaker(kind, cfg, seed, words, coding, n_kc, control)
@@ -139,29 +140,32 @@ def _job(args):
     step = float(np.mean([sp.say(s, c) == t for s, c, t in tab]))
     msgs = messages(words, cc["n_messages"], seed)
     exact = float(np.mean([sp.speak(m) == sentence(m) for m in msgs]))
-    log.info("%s seed %d V %d %s KC %d %s: step %.3f sentence %.3f groups %d (%.0fs)", kind, seed, v,
-             coding, n_kc, control, step, exact, sp.n, time.time() - t0)
-    return {"seed": seed, "V": v, "coding": coding, "n_kc": n_kc, "control": control,
+    log.info("%s seed %d V %d %s KC %d theta %d %s: step %.3f sentence %.3f groups %d (%.0fs)", kind, seed,
+             v, coding, n_kc, theta, control, step, exact, sp.n, time.time() - t0)
+    return {"seed": seed, "V": v, "coding": coding, "n_kc": n_kc, "kc_theta": theta, "control": control,
             "groups": sp.n, "step_acc": step, "sentence_exact": exact}
 
 
 def exp_capacity(cfg: dict, seed: int) -> dict:
-    """8a: every (V, coding, KC count) on the config's seeds; controls at the largest V."""
+    """8a: every (V, coding, (KC count, KC threshold)) on the config's seeds; controls at the largest V."""
     from chatfly.zumi3 import merged
 
     cfg, cc = merged(cfg), cfg["capacity"]
     out = []
     for kind in cfg["simulators"]:
         jobs = [(kind, cfg, s, v, cd, nk, None) for s in cfg["seeds"] for v in cc["vocab_sizes"]
-                for cd in cc["codings"] for nk in cc["n_kc"]]
+                for cd in cc["codings"] for nk in map(tuple, cc["kc"])]
         jobs += [(kind, cfg, s, max(cc["vocab_sizes"]), cd, nk, ctl) for s in cfg["seeds"]
-                 for cd in cc["codings"] for nk in cc["n_kc"] for ctl in cc["controls"]]
+                 for cd in cc["codings"] for nk in map(tuple, cc["kc"]) for ctl in cc["controls"]]
         with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
             res = list(ex.map(_job, jobs))
         rows = []
-        for key in sorted({(r["V"], r["coding"], r["n_kc"], str(r["control"])) for r in res}):
-            rs = [r for r in res if (r["V"], r["coding"], r["n_kc"], str(r["control"])) == key]
-            row = {"V": key[0], "coding": key[1], "n_kc": key[2], "control": key[3], "groups": rs[0]["groups"],
+        def key(r):
+            return r["V"], r["coding"], r["n_kc"], r["kc_theta"], str(r["control"])
+
+        for k in sorted({key(r) for r in res}):
+            rs = [r for r in res if key(r) == k]
+            row = {"V": k[0], "coding": k[1], "n_kc": k[2], "kc_theta": k[3], "control": k[4], "groups": rs[0]["groups"],
                    **{m: [float(np.mean([r[m] for r in rs])), float(np.min([r[m] for r in rs]))]
                       for m in ("step_acc", "sentence_exact")}}
             rows.append(row)

@@ -6,8 +6,8 @@ from chatfly import speak
 from chatfly.zumi import parse
 
 
-def cfg(**corpus):
-    c = yaml.safe_load(Path("configs/phase7a_corpus.yaml").read_text())
+def cfg(name="phase7a_corpus", **corpus):
+    c = yaml.safe_load(Path(f"configs/{name}.yaml").read_text())
     c = {**yaml.safe_load(Path(c["base"]).read_text()), **c}
     c["corpus"].update(n_train=30, n_dev=5, n_test=10, **corpus)
     return c
@@ -39,3 +39,13 @@ def test_reply_grammar():
     assert speak.grammatical(["mal", "ho"], lx) and not speak.grammatical(["ho", "mal"], lx)
     assert not speak.grammatical(["bon", "mal"], lx) and not speak.grammatical([], lx)
     assert speak.appropriate("where", ["fi"], lx) and not speak.appropriate("where", ["ya"], lx)
+
+
+def test_speaking_fly_learns_reply_form():
+    c = cfg("phase7b_speak")
+    lx, train, test = c["lang"], speak.corpus(c, 0, "train"), speak.corpus(c, 0, "test")
+    fly = speak.SpeakingFly("rate", c, 0)
+    fly.train(train, 2)
+    sham = speak.SpeakingFly("rate", c, 0, "shuffled_teacher")
+    sham.train(train, 2)
+    assert speak.evaluate(fly, test, lx)["grammatical"] > speak.evaluate(sham, test, lx)["grammatical"] + 0.3

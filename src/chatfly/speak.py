@@ -14,12 +14,17 @@ Phase 7 goal: a fly that *says* its Zumi replies word by word. 7a has no fly. It
 Stream per turn: user words, SEP, reply words, EOS. Replies never contain nouns.
 """
 
+import copy
 import hashlib
 import logging
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 
-from chatfly.fsm import make_task
+from chatfly.conditioning import token_patterns
+from chatfly.fsm import PNDirect, group_rates, make_task
+from chatfly.parity import dan_for
+from chatfly.sim import SIMULATORS
 from chatfly.zumi import parse, props, random_utterance, reserved
 
 log = logging.getLogger("chatfly")
@@ -378,3 +383,188 @@ def exp_speak_baselines(cfg: dict, seed: int) -> dict:
                                           for k in rs[0]["exact_by_kind"]}
         log.info("summary %-8s %s", name, summary[name])
     return {"summary": summary, "seeds": out}
+
+
+# --- 7b: the speaking fly -----------------------------------------------------------------
+
+def reply_words(lx) -> list:
+    return list(lx["replies"].values()) + list(lx["places"]) + list(props(lx))
+
+
+class SpeakingFly:
+    """Mushroom bodies whose output groups are the reply words plus end-of-reply (EOS).
+
+    Context: the last two words the user said (a, b; non-Zumi words as N, "-" if missing) and
+    the word the fly just said (p; SEP at the start of the reply). Each token has its own PN
+    pattern; a presentation is the max of two or three patterns. The next word is the group
+    with the highest mean MBON rate and is fed back as p.
+    - arch "single": one fly smells (a, b, p). Failed on selection seeds (ADR 0012): contexts
+      that differ only in p share ~30-40% of their KCs, and EOS, the most frequent target,
+      takes them over.
+    - arch "split" (fixed routing rule, like ADR 0008): fly 0 says the first word from (a, b);
+      fly 1 says every later word from (b, p). Two-token conjunctions, as in Phase 2.
+    Interface rules: which tokens go to which fly (fixed), stop at EOS, max reply length.
+    Training: one dopamine-gated presentation per reply word of the training corpus, DAN on in
+    every group but the target (parity.dan_for). Controls: shuffled_teacher, no_kc
+    (fsm.PNDirect), shuffled_wiring (degree-preserving PN->KC shuffle).
+    Next-word distribution (for `evaluate`): group rates / sum, mixed with a small floor."""
+
+    def __init__(self, kind, cfg, seed, control=None):
+        lx, sp, rs = cfg["lang"], cfg["speak"], cfg["rng_streams"]
+        self.vocab = reply_words(lx) + [EOS]
+        self.index = {w: i for i, w in enumerate(self.vocab)}
+        self.user = set(reserved(lx)) - set(lx["replies"].values())
+        u = sorted(self.user) + [NOUN, "-"]
+        c = copy.deepcopy(cfg)
+        c["mb"]["compartments"] = list(self.vocab)
+        c["tokens"]["names"] = ([f"a:{w}" for w in u] + [f"b:{w}" for w in u]
+                                + [f"p:{w}" for w in self.vocab[:-1] + [SEP]])
+        c["tokens"]["pn_active_frac"] = sp["pn_active_frac"]
+        c["rate"]["kc_theta"] = sp.get("kc_theta", c["rate"]["kc_theta"])
+        if control == "shuffled_wiring":
+            c["mb"]["wiring"] = "shuffle"
+        self.pats = token_patterns(c, np.random.default_rng(seed + rs["tokens"]))
+        self.split = sp["arch"] == "split"
+        self.flies = []
+        for i in range(2 if self.split else 1):
+            f = SIMULATORS[kind](c, seed + 500 * i, noise_seed=seed * rs["noise"] + 3 + 500 * i)
+            if control == "no_kc":
+                f = PNDirect(f, c, len(self.vocab), np.random.default_rng(seed + rs["noise"] + i),
+                             kind == "spiking")
+            self.flies.append(f)
+        self.dur, self.floor, self.control = c["protocol"]["duration_ms"], sp["floor"], control
+        self.rng = np.random.default_rng([seed, rs["corpus"], 7])
+
+    def tok(self, w):
+        return w if w in self.user else NOUN
+
+    def route(self, a, b, prev):
+        """-> (fly, PN rates)."""
+        m = lambda *ts: np.max([self.pats[t] for t in ts], axis=0)
+        if not self.split:
+            return self.flies[0], m("a:" + a, "b:" + b, "p:" + prev)
+        if prev == SEP:
+            return self.flies[0], m("a:" + a, "b:" + b)
+        return self.flies[1], m("b:" + b, "p:" + prev)
+
+    def train(self, dialogues, epochs):
+        n = len(self.vocab)
+        for _ in range(epochs):
+            for d in dialogues:
+                for user, reply, _ in d:
+                    a, b = (["-", "-"] + [self.tok(w) for w in user])[-2:]
+                    prev = SEP
+                    for t in reply + [EOS]:
+                        tgt = int(self.rng.integers(n)) if self.control == "shuffled_teacher" else self.index[t]
+                        fly, stim = self.route(a, b, prev)
+                        fly.present(stim, self.dur, dan_for(tgt, n))
+                        prev = t
+
+    def init(self):
+        return ("-", "-", None)
+
+    def step(self, st, t):
+        a, b, prev = st
+        uniform = np.full(len(self.vocab), 1 / len(self.vocab))
+        if t == EOS:
+            return ("-", "-", None), uniform
+        if prev is None and t != SEP:
+            return (b, self.tok(t), None), uniform
+        st = (a, b, t)
+        fly, stim = self.route(*st)
+        r = group_rates(fly, fly.present(stim, self.dur)["mbon"])
+        p = r / r.sum() if r.sum() > 0 else uniform
+        return st, (1 - self.floor) * p + self.floor * uniform
+
+
+class ContextTable(SpeakingFly):
+    """Ceiling for the fly's inputs: the most frequent next word for each context the flies
+    see, from the same training corpus (counts + 0.01). No fly is built."""
+
+    def __init__(self, cfg, train):
+        lx = cfg["lang"]
+        self.vocab = reply_words(lx) + [EOS]
+        self.index = {w: i for i, w in enumerate(self.vocab)}
+        self.user = set(reserved(lx)) - set(lx["replies"].values())
+        self.split = cfg["speak"]["arch"] == "split"
+        self.counts = {}
+        for d in train:
+            for user, reply, _ in d:
+                a, b = (["-", "-"] + [self.tok(w) for w in user])[-2:]
+                prev = SEP
+                for t in reply + [EOS]:
+                    self.counts.setdefault(self.key(a, b, prev), np.zeros(len(self.vocab)))[self.index[t]] += 1
+                    prev = t
+
+    def key(self, a, b, prev):
+        if not self.split:
+            return (a, b, prev)
+        return (a, b, SEP) if prev == SEP else ("", b, prev)
+
+    def step(self, st, t):
+        a, b, prev = st
+        uniform = np.full(len(self.vocab), 1 / len(self.vocab))
+        if t == EOS:
+            return ("-", "-", None), uniform
+        if prev is None and t != SEP:
+            return (b, self.tok(t), None), uniform
+        st = (a, b, t)
+        c = self.counts.get(self.key(*st))
+        return st, uniform if c is None else (c + 0.01) / (c + 0.01).sum()
+
+
+def _speak_job(args):
+    kind, cfg, seed, control, split = args
+    train = corpus(cfg, seed, "train")[:cfg["speak"]["n_train_dialogues"]]
+    if control == "context_table":
+        fly = ContextTable(cfg, train)
+    else:
+        fly = SpeakingFly(kind, cfg, seed, control)
+        fly.train(train, cfg["speak"]["epochs"])
+    r = evaluate(fly, corpus(cfg, seed, split)[:cfg["speak"]["n_eval_dialogues"]], cfg["lang"])
+    log.info("%s seed %d %s %s: ppl %.3f gram %.3f approp %.3f exact %.3f %s", kind, seed,
+             control, split, r["perplexity"], r["grammatical"], r["appropriate"], r["exact"],
+             {k: round(v, 3) for k, v in r["exact_by_kind"].items()})
+    return {"seed": seed, "control": control, "split": split, **r}
+
+
+def exp_speak_fly(cfg: dict, seed: int) -> dict:
+    """7b (ADR 0012): (pn_active_frac, kc_theta) chosen on select_seeds (dev split, mean
+    appropriate), then the fly, its controls and the context-table ceiling on the test seeds
+    (test split)."""
+    from pathlib import Path
+
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    cfg = {**yaml.safe_load((root / cfg["base"]).read_text()), **cfg}
+    out = []
+    for kind in cfg["simulators"]:
+        sel = {}
+        for f, th in cfg["speak"]["grid"]:
+            c = copy.deepcopy(cfg)
+            c["speak"].update(pn_active_frac=f, kc_theta=th)
+            sel[(f, th)] = _run_jobs(kind, c, [(kind, c, s, None, "dev") for s in cfg["select_seeds"]])
+        best = max(sel, key=lambda k: np.mean([r["appropriate"] for r in sel[k]]))
+        log.info("%s: (pn_active_frac, kc_theta) %s chosen on select seeds", kind, best)
+        c = copy.deepcopy(cfg)
+        c["speak"].update(pn_active_frac=best[0], kc_theta=best[1])
+        test = _run_jobs(kind, c, [(kind, c, s, ctl, "test") for s in cfg["seeds"]
+                                   for ctl in cfg["speak"]["controls"]])
+        rows = []
+        for ctl in cfg["speak"]["controls"]:
+            rs = [r for r in test if r["control"] == ctl]
+            row = {"control": ctl, **{k: [float(np.mean([r[k] for r in rs])), float(np.min([r[k] for r in rs]))]
+                                      for k in ("perplexity", "grammatical", "appropriate", "exact")}}
+            rows.append(row)
+            log.info("%s summary %s", kind, row)
+        out.append({"simulator": kind, "pn_active_frac": best[0], "kc_theta": best[1],
+                    "select": {str(k): v for k, v in sel.items()}, "test": test, "rows": rows})
+    return {"fly": out}
+
+
+def _run_jobs(kind, cfg, jobs):
+    if cfg.get("workers", 1) > 1:
+        with ProcessPoolExecutor(cfg["workers"]) as ex:
+            return list(ex.map(_speak_job, jobs))
+    return [_speak_job(j) for j in jobs]

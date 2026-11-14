@@ -1,6 +1,6 @@
 # 0012. Phase 7: a fly that says its Zumi replies (7a: corpus, metrics, baselines)
 
-- Status: Accepted (7a)
+- Status: Accepted (7a, 7b design); final goal agreed with the user on 2026-11-14
 - Date: 2026-11-14
 
 ## Context
@@ -23,6 +23,22 @@ Phases:
 | 7b | speaking fly v0: MBON groups = reply words, previous word fed back | to be set from 7a |
 | 7c | grammar state tracked by the fly (several flies) | branch point |
 | 7d | replies use the memory fly and the ring, over many turns | |
+| 7e | Zumi 3: "GPT-2 level in Zumi" (below) | final |
+
+### Final goal (7e), agreed with the user
+
+The user asked to raise the bar to "GPT-2 level language use". In Zumi this means:
+
+- **Free generation.** The fly samples each word from its MBON output, and one turn can hold several sentences. The interface only stops at the end word.
+- **Zumi 3.** Zumi gains the pronoun `to` ("it" = the current topic): `to ke?`, and the fly says `to ka mal ho.` The fly can ask back (`sun ka gu.` → `o. sun ho ba?`). A pronoun is used instead of copying nouns, which output groups can't do.
+- **Criteria**, on test seeds:
+  1. reply perplexity ≤ the strongest baseline (5-gram, RNN, and a gated RNN to be added);
+  2. sampled sentences grammatical ≥ 0.95 and fitting the question ≥ 0.95;
+  3. statements about taught facts and the ring place agree with the truth ≥ 0.95;
+  4. diversity (distinct-n) reported, with no degenerate repetition;
+  5. the controls (shuffled teacher, no KC, shuffled wiring) fail.
+
+  Risk: Zumi 3 has more grammar states (7c).
 
 ## Decisions (7a)
 
@@ -44,6 +60,21 @@ Phases:
   - An Elman RNN (128 units) trained on reply words only. It sees each noun as a fixed random ±1 vector from sha256(word), the same information the fly gets. The epoch is chosen on a dev split.
   - Because nouns are new in every dialogue, exact replies about facts need **in-context memory**: the RNN must learn it, and the n-grams can't have it.
 - **No external LLM.** The corpus is generated from the grammar.
+
+## Decisions (7b)
+
+- **Output groups:** 16 reply words (o ya na hm e, 3 places, 8 properties) plus EOS = 17.
+- **Context:** the last two user words (`a`, `b`; nouns as one class N) and the fly's previous word `p` (SEP at the start of a reply). Each token is a PN pattern. The next word is the argmax group, fed back as `p`.
+- **One fly smelling (a, b, p) failed** on selection seed 10.
+  - Grammatical was 0.06–0.55 at token density 0.05–0.15. With a higher KC threshold (850) it reached 0.93.
+  - Contexts that differ only in `p` share 28–48% of their active KCs. EOS, the target of every reply's last step, takes the shared KCs over, so the fly ends replies at once.
+- **Two flies with a fixed routing rule** (like ADR 0008).
+  - Fly 0 says the first word from (a, b); fly 1 says every later word from (b, p). These are two-token conjunctions, as in Phase 2.
+  - Prototype on selection seeds 10–11: grammatical 1.000, appropriate 0.950–0.952 at density 0.15 and KC threshold 650.
+  - Routing on "first word or not" is an interface rule; the fly still chooses every word.
+- **Ceiling:** a lookup table with the most frequent next word for each context the flies see. On seeds 10–11 it gets appropriate 0.977–0.978, and "bad" (word salad → `e`) only 0.77. Telling salad from a real sentence needs the whole utterance, which is the grammar state of 7c.
+- **Selection:** (token density, KC threshold) from a 4-point grid on seeds 10–14 (dev split), by mean appropriate.
+- **Gate (set before the test run):** on every test seed grammatical ≥ 0.95 and appropriate ≥ 0.95, and each fly control's mean appropriate ≤ 0.90. Content (exact on ask / what / where / yes-no) is not part of the 7b gate.
 
 ## Consequences
 

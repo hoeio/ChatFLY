@@ -143,3 +143,7 @@ With the unknown-object reply taught on its own odors, the 8h failure is gone (u
 ## 8h-3 and 8h-4: option 2 fails, option 1 passes
 
 8h-3: more practice load and twice the speaker KCs leave the worst of 20 select seeds at about 0.91, so the odor-based yes/no decision was dropped. 8h-4: 8f-2's pipeline (threshold decision) plus the role fly and the pointer fly. Test seeds 205–214: replies 0.997 (min 0.986); no-KC memory 0.480, no-KC speaker 0.000, no-KC pointer 0.167; no-KC role fly unchanged (0.997). The cue pointer is now a fly that needs its KC layer.
+
+## 8i: predicate routing, third try — stopped at the probe
+
+Sparser word odors (and the FlyWire-sized PN layer) raise the unrouted memory's confident answers from 0.74 to about 0.88. But no setting reaches about 0.95 for both known facts and declining unknown subjects: an unknown subject shares its head word and the predicate's smell with known facts. Probe on selection seeds only; no test run. The routing stays as glue.

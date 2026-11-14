@@ -162,6 +162,8 @@ class Chat:
         c["mb"]["n_kc"], c["rate"]["kc_theta"] = mc["n_kc"], mc["kc_theta"]
         c["lang"] = {**c["lang"], "memory": {**c["lang"]["memory"], "n_teach": mc.get("n_teach", c["lang"]["memory"]["n_teach"])}}
         self.routed = mc.get("routing", "pair") == "pair"  # "none" (8d-2): subject + predicate smelled together
+        if "pn_active_frac" in mc:  # 8i: sparser word odors, so a three-word union is less dense
+            c["tokens"] = {**c["tokens"], "pn_active_frac": mc["pn_active_frac"]}
         cm = c
         def make_mem():
             return phrase_memory(kind, cm, seed, self.preds if self.routed else ["fact"],

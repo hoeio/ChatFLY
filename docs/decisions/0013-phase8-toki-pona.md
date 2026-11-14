@@ -822,6 +822,34 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - the `mi`/`sina` swap (none in this task);
   - teacher schedules (balance, rehearsal).
 
+### 8i: predicate routing, third try (the user chose this glue item after 8h-4): stopped at the probe stage
+
+- **Idea:** the unrouted yes/no memory (8d-2: subject words and predicate smelled together, one yes/no pair) with levers the earlier tries lacked:
+  - more teaching per fact;
+  - a lower confidence threshold;
+  - sparser word odors (fewer active PNs per word, so a three-word union is less dense);
+  - the FlyWire-sized PN layer (340 PNs, 8a-2).
+  - A separate PN channel for the predicate (the pointer-fly trick) does nothing here, since predicate words are never subject words.
+- **Probe on selection seeds only** (, no test seeds used). The memory alone was told 90 facts, as in a conversation, about 40 subjects and 4 predicates; unknown subjects were asked about every predicate.
+
+  | PNs, active fraction | KCs, threshold | seed 10: right and confident at 0.1 / 0.2; unknown declined at 0.1 / 0.2 | seed 11, same |
+  |---|---|---|---|
+  | 150, 0.15 (8d-2) | 32000, 850 | 0.822 / 0.74*; – | – |
+  | 150, 0.07 | 32000, 850 | 0.896 / 0.806; 0.725 / 0.900 | 0.887 / 0.873; 0.800 / 0.975 |
+  | 150, 0.07 | 32000, 650 | 0.746 / 0.657; 0.450 / 0.850 | 0.761 / 0.620; 0.625 / 0.875 |
+  | 340, 0.05 | 32000, 850 | 0.776 / 0.687; 0.825 / 0.950 | 0.648 / 0.620; 0.925 / 0.950 |
+  | 340, 0.05 | 32000, 650 | 0.866 / 0.716; 0.550 / 0.875 | 0.831 / 0.775; 0.700 / 1.000 |
+  | 340, 0.03 | 32000, 850 | 0.045 (silent) | 0.099 (silent) |
+  | 340, 0.03 | 32000, 650 | 0.866 / 0.776; 0.650 / 0.900 | 0.873 / 0.831; 0.725 / 0.950 |
+
+  \* 8d-2's setting, from a first probe: 0.74 of facts confident at 0.2, 0.92 right.
+- **Whole conversation** (seed 10, 32000 KCs): yes/no 0.839 (8d-2's setting), 0.911 at threshold 0.1, 0.875 with 10 teachings.
+- **Reading:**
+  - Sparser odors raise the facts answered (0.74 to about 0.88 at threshold 0.2), but no setting gets both known facts and unknown subjects to about 0.95.
+  - A setting that knows more also answers more about unknown subjects. Without routing, an unknown subject shares its head word and the predicate's smell with known facts, the 8e-2 failure.
+  - This is the third failure of the same kind (8d-2, 8e-2, 8i). The test was not run, since the selection data already rule out the gate.
+  - **Predicate routing stays as glue.**
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

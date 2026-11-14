@@ -672,6 +672,27 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - reply exact ≥ 0.95 on every test seed;
   - for each control (`memory_no_kc`, `speaker_no_kc`, `odor_off`), mean **yes/no** exact ≤ 0.80. Overall reply exact no longer measures the fly's decision, since the object path is glue; on seed 10, `odor_off` is 0.803 overall.
 
+#### 8g-2 result (`results/20261114-222259_phase8g2_chat_s0`): gate passed
+
+- **Selection** (seeds 10–19): 0.977 / 0.983 / 0.977 / 0.983. `n_practice` 120 with `rehearse` 1 was chosen; rehearse 3 changed nothing.
+- **Test** (seeds 165–174): reply exact mean 0.992, min 0.980.
+  - yes/no 0.989 (min 0.970);
+  - objects 1.000;
+  - unknown subjects 0.981 (min 0.885, seed 174);
+  - changes of mind 0.992.
+- **Controls, yes/no exact:**
+  - `memory_no_kc` 0.235;
+  - `speaker_no_kc` 0.000;
+  - `odor_off` 0.368. Without the odor, objects still reach 0.940, since that path is glue.
+- **Gate:** both criteria are met.
+- **Reading:**
+  - For yes/no questions the speaker now decides between answering, `ala` and "mi sona ala" from the memory's odor. That removes a confidence threshold and the reply branch, at a small cost against the glue pipeline (8f-2: 0.998 overall, 0.998 yes/no).
+  - The memory's KC layer and the odor both carry the decision (controls 0.235, 0.368).
+  - **What still is glue:**
+    - the odor interface itself, which computes sureness and doubt from the top two scores: fixed, no threshold;
+    - the practice session (teacher);
+    - the object path's threshold and plan.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

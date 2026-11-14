@@ -614,6 +614,33 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - The plain-fly failure rate here (1 in 20) is lower than in 8e / 8e-3 (3 in 10). With small counts this is within chance.
   - Rehearsal never made a seed worse.
 
+## 8g: the reply plan and "mi sona ala" as a fly (the user chose this glue item after 8f-2; written before the run)
+
+- **Glue removed:**
+  - both memories' confidence thresholds (yes/no 0.2, object 0.1);
+  - the reply branch that builds the cue list (answer, `ala` or not, or "mi sona ala") from the memory's answer.
+  - The cue list is now always the question's own words, plus the object memory's top word for "what" questions. The speaker decides whether to answer, deny or say "mi sona ala".
+- **Interface (fixed, unlearned):** a memory's output scores reach the speaker as a mixture of four odors (PN patterns on the speaker's PNs), each scaled 0..1. With top and second the two highest scores:
+  - `yes` / `no` = (top − second) / top on the winning side (yes/no memory);
+  - `sure` = the same for the object memory;
+  - `doubt` = second / top.
+  - **Why channels and not the raw rates:** with raw rates over max, "yes" (1, 0.3) is a PN subset of "unknown" (1, 1). Under depression learning the subset context loses: on selection seed 10 this gave yes/no 0.0. The same holds for odor-free contexts, so every reply carries an odor and the odor-free reply table is not taught.
+- **Teaching:**
+  - The speaker's table is the reply sentences over the conversation's lexicon (heads, modifiers, predicates, objects), each context with an odor class (yes, no, sure, unknown).
+  - The odors come from a **practice session.** Before the conversation, throwaway copies of the two memories are told `n_practice` facts, drawn as in a conversation, so some are changes of mind. The speaker is taught with the odors those copies then give, one drawn per presentation.
+  - On seed 10, hand prototypes (1 on one channel) failed for objects. Practice at 20 facts was too light a load: 0.925. At 60 facts it gave 0.973.
+  - The practice is teacher glue, like the balance and the rehearsal.
+  - Teaching once per context (no state balance: with the new contexts `mi` became the majority in S0 and the balance taught 102 contexts 12 times). Then rehearsal.
+- **Selection** (seeds 10–19, `configs/phase8g_chat.yaml`): `n_practice` 60 or 120 × `rehearse` 1 or 3, mean reply exact, ties to the listed order. Everything else is 8f-2.
+- **Test:** new seeds 155–164.
+- **Gate:**
+  - reply exact ≥ 0.95 on every test seed;
+  - mean ≤ 0.80 for each control:
+    - `memory_no_kc` (both memories without KC layer, so the odor carries no fact);
+    - `speaker_no_kc`;
+    - `odor_off` (the speaker gets no odor at test). On seed 10, the odor-free speaker still says object replies right (1.000) but fails on yes/no (0.321) and unknown subjects (0.0).
+  - Reference: 8f-2 with the glue, 0.998.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

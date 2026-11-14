@@ -66,6 +66,33 @@ def speaker_table(content):
     return t + [("S0", "mi", "mi"), ("P", "ala", "ala"), ("P", NONE, EOS), ("PN", NONE, EOS)]
 
 
+def memory_odor(score, polar):
+    """8g, the fixed interface from a memory fly to the speaker: four odor channels from the
+    memory's output scores, top and second over top: yes, no (polar memories: the winning side's
+    sureness), sure (object memory), doubt. No threshold; the speaker's KCs read the mixture."""
+    o = np.sort(score)[::-1]
+    if o[0] <= 0:
+        return np.zeros(4)
+    sure, doubt = (o[0] - o[1]) / o[0], o[1] / o[0]
+    side = int(np.argmax(score))
+    return np.array([sure * (side == 0), sure * (side == 1), 0.0, doubt]) if polar else np.array([0.0, 0.0, sure, doubt])
+
+
+def reply_odor_table(heads, mods, preds, opreds, objects):
+    """8g: (state, cue, word, odor class) for every reply. The odors come from a practice session
+    (Chat.practice). Cues: the subject, the predicate and the object word."""
+    yes, no, sure, unk = "yes", "no", "sure", "unk"
+    t = []
+    for r, ps in ((yes, preds), (no, preds), (sure, opreds)):
+        t += [("S0", h, h, r) for h in heads] + [("S1", m, m, r) for m in mods]
+        t += [("S2", p, "li", r) for p in ps] + [("LI", p, p, r) for p in ps]
+    t += [("P", NONE, EOS, yes), ("P", NONE, "ala", no), ("PN", NONE, EOS, no)]
+    t += [("P", o, "e", sure) for o in objects] + [("E", o, o, sure) for o in objects] + [("O", NONE, EOS, sure)]
+    for h in heads:  # unknown: "mi sona ala"; the cue pointer stays on the head
+        t += [("S0", h, "mi", unk), ("MI", h, "sona", unk), ("P", h, "ala", unk), ("PN", h, EOS, unk)]
+    return t
+
+
 def grammar_fly(kind, cfg, seed, task, gf):
     """8b's grammar fly on a task; gf: n_kc, kc_theta, threshold, optional source (table | table_bal)."""
     from chatfly.fsm import transitions
@@ -116,15 +143,20 @@ class Chat:
             rest = pool[npr + nh + nm + 1:]
             self.opreds, self.objects = rest[:dc["n_object_preds"]], rest[dc["n_object_preds"]:][:dc["n_objects"]]
             om = dc["object_memory"]
-            self.omem = ObjectMemory(kind, cfg, seed, self.vocab, self.opreds, self.objects, om,
-                                     "no_kc" if "memory_no_kc" in controls else None)
+            def make_omem():
+                return ObjectMemory(kind, cfg, seed, self.vocab, self.opreds, self.objects, om,
+                                    "no_kc" if "memory_no_kc" in controls else None)
+            self.omem = make_omem()
         mc = dc["memory_fly"]
         c = copy.deepcopy(cfg)
         c["mb"]["n_kc"], c["rate"]["kc_theta"] = mc["n_kc"], mc["kc_theta"]
         c["lang"] = {**c["lang"], "memory": {**c["lang"]["memory"], "n_teach": mc.get("n_teach", c["lang"]["memory"]["n_teach"])}}
         self.routed = mc.get("routing", "pair") == "pair"  # "none" (8d-2): subject + predicate smelled together
-        self.mem = phrase_memory(kind, c, seed, self.preds if self.routed else ["fact"],
+        cm = c
+        def make_mem():
+            return phrase_memory(kind, cm, seed, self.preds if self.routed else ["fact"],
                                  "no_kc" if "memory_no_kc" in controls else None)
+        self.mem = make_mem()
         self.mem_thr = mc["threshold"]
         sc = {**dc["speaker"], **nr}
         c = copy.deepcopy(cfg)
@@ -134,18 +166,32 @@ class Chat:
         tab = speaker_table(content)
         if self.objects_on:
             tab += [("P", o, "e") for o in self.objects] + [("E", o, o) for o in self.objects] + [("O", NONE, EOS)]
+        reps = repeats(tab, sc["balance"])
+        tab = [(s, cue, t, None) for s, cue, t in tab]
+        self.odor = "mem_odor" in sc  # 8g: the memories' outputs reach the speaker as an odor
+        self.odor_off = "odor_off" in controls
+        if self.odor:  # every reply carries an odor, so the odor-free table is not taught
+            tab = reply_odor_table(heads, mods[:nm], self.preds, self.opreds, self.objects)
+            reps = [1] * len(tab)
+            self.pool = self.practice(make_mem(), make_omem(), sc["mem_odor"]["n_practice"], np.random.default_rng([seed, 8, 18]))
         idx = {w: i for i, w in enumerate(self.sp.outs)}
-        order = np.repeat(np.arange(len(tab)), repeats(tab, sc["balance"]))
+        order = np.repeat(np.arange(len(tab)), reps)
+        def odor(r, sample):  # 8g: a practice odor of class r (one drawn per presentation; the mean to check)
+            if r is None or not isinstance(r, str):
+                return r
+            p = self.pool[r]
+            return p[self.sp.rng.integers(len(p))] if sample else np.mean(p, axis=0)
         def teach(j):
-            s, cue, t = tab[j]
+            s, cue, t, r = tab[j]
+            r = odor(r, True)
             dan = np.ones(self.sp.n)
             dan[self.sp.code[idx[t]]] = 0.0
-            self.sp.sim.present(self.sp.stim(s, cue), self.sp.dur, dan)
+            self.sp.sim.present(self.sp.stim(s, cue, r), self.sp.dur, dan)
         for _ in range(c["protocol"]["n_train"]):
             for j in self.sp.rng.permutation(order):
                 teach(j)
         for _ in range(sc.get("rehearse", 0)):  # 8f: the teacher re-teaches the contexts the fly says wrong
-            wrong = [j for j, (s, cue, t) in enumerate(tab) if self.sp.say(s, cue) != t]
+            wrong = [j for j, (s, cue, t, r) in enumerate(tab) if self.sp.say(s, cue, odor(r, False)) != t]
             log.info("seed %d speaker rehearsal: %d of %d contexts wrong", seed, len(wrong), len(tab))
             for j in self.sp.rng.permutation(wrong):
                 teach(j)
@@ -175,6 +221,10 @@ class Chat:
                     self.omem.teach(subj, pred, obj)
                     return None
                 return ["?"]
+            if self.odor:  # 8g: the object word is the cue; knowing or not is left to the speaker
+                sc = self.omem.scores(subj, pred)
+                od = np.zeros(4) if self.odor_off else memory_odor(sc, False)
+                return self.speak(subj + [pred, self.objects[int(np.argmax(sc))]], od)
             got = self.omem.ask(subj, pred)
             return self.speak(UNKNOWN if got is None else subj + [pred, got])
         if s in ("P", "PN") and pred in self.preds:
@@ -183,15 +233,48 @@ class Chat:
             return None
         if s != "Q" or pred not in self.preds:
             return ["?"]
+        if self.odor:  # 8g: no confidence threshold, no reply branch; the speaker smells the memory
+            return self.speak(subj + [pred], np.zeros(4) if self.odor_off else memory_odor(self.mem_rates(subj, pred), True))
         side, conf = (self.mem.ask(" ".join(subj), self.preds.index(pred)) if self.routed
                       else self.mem.ask(" ".join(subj + [pred]), 0))
         plan = UNKNOWN if side is None or conf < self.mem_thr else subj + [pred] + (["ala"] if side else [])
         return self.speak(plan)
 
-    def speak(self, cues, max_len=8):
+    def practice(self, mem, omem, n, rng):
+        """8g: before the conversation the teacher tells throwaway copies of the two memories n facts
+        each (drawn as in a conversation) and keeps the odors they then give: per class yes, no,
+        sure (object known), unknown. The speaker is taught with these."""
+        own, self.mem, keep = self.mem, mem, self.omem
+        self.omem, pool = omem, {"yes": [], "no": [], "sure": [], "unk": []}
+        yn, ob = {}, {}  # facts drawn with replacement, so a later fact can change an earlier one
+        for _ in range(n):
+            sj = self.subjects[rng.integers(len(self.subjects))]
+            p, v = self.preds[rng.integers(len(self.preds))], int(rng.integers(2))
+            yn[(sj, p)] = v
+            mem.teach(" ".join(sj), p if v == 0 else f"{p}_ala")
+            p, o = self.opreds[rng.integers(len(self.opreds))], self.objects[rng.integers(len(self.objects))]
+            ob[(sj, p)] = o
+            omem.teach(list(sj), p, o)
+        for (sj, p), v in yn.items():
+            pool["no" if v else "yes"].append(memory_odor(self.mem_rates(sj, p), True))
+        for (sj, p), o in ob.items():
+            pool["sure"].append(memory_odor(omem.scores(list(sj), p), False))
+        for s in self.unknown:
+            pool["unk"].append(memory_odor(self.mem_rates(s, self.preds[rng.integers(len(self.preds))]), True))
+            pool["unk"].append(memory_odor(omem.scores(list(s), self.opreds[rng.integers(len(self.opreds))]), False))
+        self.mem, self.omem = own, keep
+        return {k: np.array(v) for k, v in pool.items()}
+
+    def mem_rates(self, subj, pred):
+        """The yes/no memory's two output rates (mean per compartment, n_ask sniffs)."""
+        sl = self.mem.slots[self.preds.index(pred)]
+        mb = sum(sl.present(self.mem.pattern(" ".join(subj)), self.mem.dur)["mbon"] for _ in range(self.mem.n_ask))
+        return np.array([mb[sl.mbon_comp == c].mean() for c in range(sl.n_comp)])
+
+    def speak(self, cues, odor=None, max_len=8):
         state, k, out = "S0", 0, []
         while len(out) < max_len and state != "X":
-            w = self.sp.say(state, cues[k] if k < len(cues) else NONE)
+            w = self.sp.say(state, cues[k] if k < len(cues) else NONE, odor)
             if w is None or w == EOS:
                 break
             out.append(w)
@@ -386,10 +469,13 @@ class ObjectMemory:
     def slot(self, subj, pred):
         return (self.slots[self.preds.index(pred)], subj) if self.routed else (self.slots[0], list(subj) + [pred])
 
-    def ask(self, subj, pred):
+    def scores(self, subj, pred):
         s, key = self.slot(subj, pred)
         r = group_rates(s, s.present(self.smell(key), self.dur)["mbon"])
-        score = np.array([r[g].mean() for g in self.code])
+        return np.array([r[g].mean() for g in self.code])
+
+    def ask(self, subj, pred):
+        score = self.scores(subj, pred)
         o = np.sort(score)[::-1]
         if o[0] <= 0 or (o[0] - o[1]) / o[0] < self.thr:
             return None

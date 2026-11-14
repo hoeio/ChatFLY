@@ -1,0 +1,43 @@
+# Phase 8g (ADR 0013): the reply plan and 'mi sona ala' as a fly: both memories' outputs reach the speaker as an odor
+# (yes / no / sure / doubt channels); no confidence threshold, no reply branch. The speaker is taught with odors from a
+# practice session; practice size and rehearsal rounds chosen on select seeds.
+# Phase 8f-2 (ADR 0013): 8f's chosen setting (rehearse 1, both flies) fixed, no selection, on 20 fresh test seeds.
+# Phase 8f (ADR 0013): 8e-3 plus rehearsal: after teaching, the teacher re-teaches the contexts each fly gets wrong (speaker and grammar fly); rounds chosen on select seeds.
+# Phase 8e-3 (ADR 0013): 8e with the grammar fly and the yes/no memory chosen on select seeds.
+# Phase 8e (ADR 0013): a whole Toki Pona conversation carried by flies: yes/no facts, object facts
+# ("S li P e O"), yes/no and "what" questions ("S li P e seme?"), changes of mind, unknown subjects.
+# The 8d flies keep their settings; the new object memory's setting is chosen on select_seeds.
+experiment: chat8d
+base: configs/phase6_zumi.yaml
+seed: 0
+seeds: [155, 156, 157, 158, 159, 160, 161, 162, 163, 164]   # new test seeds
+select_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+simulators: [rate]
+workers: 10
+
+chat8d:
+  objects: true
+  class_fly: {n_kc: 2000, kc_theta: 450, balance: class}          # 8b-3
+  grammar_fly: {n_kc: 2000, kc_theta: 650, threshold: 0.1, rehearse: 1}   # 8b + 8f
+  memory_fly: {n_kc: 16000, kc_theta: 850, threshold: 0.2}        # 8c / 8d (routed)
+  speaker: {coding: k2n20, n_pn: 150, pn_active_frac: 0.15, n_kc: 16000, kc_theta: 850, balance: state, rehearse: 1, mem_odor: {n_practice: 60}}  # 8a-3 + 8f + 8g
+  object_memory: {coding: k2n20, n_kc: 16000, kc_theta: 850, n_teach: 5, threshold: 0.1}   # chosen in 8e
+  select:                               # mean reply exact on select_seeds, ties to the listed order
+    key: speaker
+    conds:
+      - {rehearse: 1, mem_odor: {n_practice: 60}}
+      - {rehearse: 1, mem_odor: {n_practice: 120}}
+      - {rehearse: 3, mem_odor: {n_practice: 60}}
+      - {rehearse: 3, mem_odor: {n_practice: 120}}
+  n_heads: 10
+  n_mods: 4                             # 40 subjects
+  n_preds: 4                            # yes/no predicates
+  n_object_preds: 2                     # predicates that take an object
+  n_objects: 8
+  n_turns: 300
+  p_turn: [0.3, 0.2, 0.2, 0.2, 0.1]     # teach yes/no, teach object, ask yes/no, ask what, ask about an unknown subject
+  controls: [memory_no_kc, speaker_no_kc, odor_off]   # memory_no_kc: both memory flies without KC layer; odor_off: the speaker gets no memory odor
+
+gate:                                   # ADR 0013, set before the run
+  reply_exact_min: 0.95                 # every test seed, all questions
+  control_reply_exact_max: 0.80         # mean, each control

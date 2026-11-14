@@ -104,7 +104,7 @@ class Speaker:
             self.code = [list(sets[i]) for i in pick]
         c = copy.deepcopy(cfg)
         c["mb"]["compartments"], c["mb"]["n_kc"] = [str(i) for i in range(n)], n_kc
-        c["tokens"]["names"] = [f"s:{s}" for s in states] + [f"c:{w}" for w in list(words) + [NONE]]
+        c["tokens"]["names"] = [f"s:{s}" for s in states] + [f"c:{w}" for w in list(words) + [NONE]] + [f"m:{i}" for i in range(4)]
         c["tokens"]["pn_active_frac"], c["rate"]["kc_theta"] = sp["pn_active_frac"], sp["kc_theta"]
         c["mb"]["n_pn"] = sp.get("n_pn", c["mb"]["n_pn"])
         self.pats = token_patterns(c, np.random.default_rng(seed + rs["tokens"]))
@@ -113,9 +113,14 @@ class Speaker:
             self.sim = PNDirect(self.sim, c, n, np.random.default_rng([seed, 8, 5]), kind == "spiking")
         self.n, self.control, self.dur = n, control, c["protocol"]["duration_ms"]
         self.rng, self.balance = np.random.default_rng([seed, 8, 4]), sp.get("balance", "none")
+        self.spont = c["tokens"]["pn_spont_hz"]
 
-    def stim(self, s, c):
-        return np.maximum(self.pats["s:" + s], self.pats["c:" + c])
+    def stim(self, s, c, r=None):
+        """r (8g): the memory odor's channel strengths (0..1); each scales its pattern's PN drive."""
+        x = np.maximum(self.pats["s:" + s], self.pats["c:" + c])
+        if r is None:
+            return x
+        return np.maximum(x, self.spont + np.max([(self.pats[f"m:{i}"] - self.spont) * x for i, x in enumerate(r)], axis=0))
 
     def train(self, tab, epochs):
         idx = {w: i for i, w in enumerate(self.outs)}
@@ -128,8 +133,8 @@ class Speaker:
                 dan[self.code[i]] = 0.0
                 self.sim.present(self.stim(s, c), self.dur, dan)
 
-    def say(self, s, c):
-        r = group_rates(self.sim, self.sim.present(self.stim(s, c), self.dur)["mbon"])
+    def say(self, s, c, odor=None):
+        r = group_rates(self.sim, self.sim.present(self.stim(s, c, odor), self.dur)["mbon"])
         score = np.array([r[g].mean() for g in self.code])
         top = np.sort(score)[::-1]
         return None if r.sum() <= 0 or top[0] == top[1] else self.outs[int(np.argmax(score))]

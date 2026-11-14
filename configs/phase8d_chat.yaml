@@ -1,0 +1,23 @@
+# Phase 8d (ADR 0013): a Toki Pona question-answering exchange carried by flies (H4).
+# Every fly keeps the setting chosen in its own phase; nothing is selected here.
+experiment: chat8d
+base: configs/phase6_zumi.yaml
+seed: 0
+seeds: [105, 106, 107, 108, 109]        # new test seeds
+simulators: [rate]
+workers: 10
+
+chat8d:
+  class_fly: {n_kc: 2000, kc_theta: 450, balance: class}          # 8b-3
+  grammar_fly: {n_kc: 2000, kc_theta: 650, threshold: 0.1}        # 8b
+  memory_fly: {n_kc: 16000, kc_theta: 850, threshold: 0.2}        # 8c
+  speaker: {coding: k2n20, n_pn: 150, pn_active_frac: 0.15, n_kc: 16000, kc_theta: 850, balance: state}  # 8a-3
+  n_heads: 10
+  n_mods: 4                             # 40 subjects (head + modifier), as 8c level 1
+  n_preds: 4
+  preds_per_subject: 2                  # 80 facts taught by statements
+  controls: [memory_no_kc, speaker_no_kc, class_no_kc]
+
+gate:                                   # ADR 0013, set before the run
+  reply_exact_min: 0.95                 # every test seed, over all 120 questions (80 taught, 40 unknown)
+  control_reply_exact_max: 0.80         # mean, each control

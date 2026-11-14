@@ -90,7 +90,7 @@ def repeats(tab, by):
 
 
 class Speaker:
-    def __init__(self, kind, cfg, seed, words, coding, n_kc, control=None):
+    def __init__(self, kind, cfg, seed, words, coding, n_kc, control=None, states=STATES):
         rs, sp = cfg["rng_streams"], cfg["capacity"]
         self.outs = list(words) + ["li", "e", EOS]
         if coding == "onehot":
@@ -104,7 +104,7 @@ class Speaker:
             self.code = [list(sets[i]) for i in pick]
         c = copy.deepcopy(cfg)
         c["mb"]["compartments"], c["mb"]["n_kc"] = [str(i) for i in range(n)], n_kc
-        c["tokens"]["names"] = [f"s:{s}" for s in STATES] + [f"c:{w}" for w in list(words) + [NONE]]
+        c["tokens"]["names"] = [f"s:{s}" for s in states] + [f"c:{w}" for w in list(words) + [NONE]]
         c["tokens"]["pn_active_frac"], c["rate"]["kc_theta"] = sp["pn_active_frac"], sp["kc_theta"]
         c["mb"]["n_pn"] = sp.get("n_pn", c["mb"]["n_pn"])
         self.pats = token_patterns(c, np.random.default_rng(seed + rs["tokens"]))
@@ -361,25 +361,27 @@ class ClassFly:
     """Smells one word and says its class (one MBON group per class). Taught from the word list's
     labels (the dictionary), every word once per epoch; its decoded class is the grammar fly's input."""
 
-    def __init__(self, kind, cfg, seed, words, control=None, balance="none"):
+    def __init__(self, kind, cfg, seed, words, control=None, balance="none", vocab=None, cls=None):
         """balance "class": each word taught (largest class size / its class size) times per epoch
-        (8a-3's rule with the class as the only key)."""
+        (8a-3's rule with the class as the only key). vocab, cls: the full word list and
+        (class names, word list -> classes) for another grammar (8d); default 8b's."""
         from chatfly.parity import dan_for
 
         rs, c = cfg["rng_streams"], copy.deepcopy(cfg)
-        self.words = list(words) + ["li", "e"]
-        c["mb"]["compartments"], c["tokens"]["names"] = list(CLASSES), [f"w:{w}" for w in self.words]
+        names, classify = cls or (CLASSES, classes)
+        self.words, self.names = list(vocab or list(words) + ["li", "e"]), list(names)
+        c["mb"]["compartments"], c["tokens"]["names"] = self.names, [f"w:{w}" for w in self.words]
         self.pats = token_patterns(c, np.random.default_rng([seed, 8, 8]))
         self.sim = SIMULATORS[kind](c, seed + 3 * rs["fly"], noise_seed=seed * rs["noise"] + 9)
         if control == "no_kc":
-            self.sim = PNDirect(self.sim, c, len(CLASSES), np.random.default_rng([seed, 8, 9]), kind == "spiking")
-        rng, dur, target = np.random.default_rng([seed, 8, 10]), c["protocol"]["duration_ms"], classes(self.words)
-        reps = [round(max(map(target.count, CLASSES)) / target.count(k)) if balance == "class" else 1 for k in target]
+            self.sim = PNDirect(self.sim, c, len(self.names), np.random.default_rng([seed, 8, 9]), kind == "spiking")
+        rng, dur, target = np.random.default_rng([seed, 8, 10]), c["protocol"]["duration_ms"], classify(self.words)
+        reps = [round(max(map(target.count, self.names)) / target.count(k)) if balance == "class" else 1 for k in target]
         order = np.repeat(np.arange(len(self.words)), reps)
         for _ in range(c["protocol"]["n_train"]):
             for i in rng.permutation(order):
-                tgt = int(rng.integers(len(CLASSES))) if control == "shuffled" else CLASSES.index(target[i])
-                self.sim.present(self.pats["w:" + self.words[i]], dur, dan_for(tgt, len(CLASSES)))
+                tgt = int(rng.integers(len(self.names))) if control == "shuffled" else self.names.index(target[i])
+                self.sim.present(self.pats["w:" + self.words[i]], dur, dan_for(tgt, len(self.names)))
         self.dur, self.cache = dur, {}
 
     def __call__(self, w):
@@ -389,7 +391,7 @@ class ClassFly:
         if w not in self.cache:
             r = group_rates(self.sim, self.sim.present(self.pats["w:" + w], self.dur)["mbon"])
             i = argmax_or_none(r)
-            self.cache[w] = None if i is None else CLASSES[i]
+            self.cache[w] = None if i is None else self.names[i]
         return self.cache[w]
 
 

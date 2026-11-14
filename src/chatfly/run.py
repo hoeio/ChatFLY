@@ -27,6 +27,7 @@ from chatfly.sim import SIMULATORS
 from chatfly.speak import exp_speak_baselines, exp_speak_fly
 from chatfly.talk import exp_talk
 from chatfly.tokipona import exp_capacity, exp_classfly, exp_grammar8, exp_phrase_memory
+from chatfly.tokipona_chat import exp_chat8d
 from chatfly.zumi import exp_zumi, exp_zumi_memory
 from chatfly.zumi3 import exp_zumi3
 
@@ -105,7 +106,7 @@ EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning, "parity": e
                "multi_fly": exp_multi_fly, "chat": exp_chat, "zumi": exp_zumi,
                "zumi_memory": exp_zumi_memory, "speak_baselines": exp_speak_baselines,
                "speak_fly": exp_speak_fly, "grammar": exp_grammar, "talk": exp_talk, "zumi3": exp_zumi3,
-               "capacity": exp_capacity, "grammar8": exp_grammar8, "classfly": exp_classfly, "phrase_memory": exp_phrase_memory}
+               "capacity": exp_capacity, "grammar8": exp_grammar8, "classfly": exp_classfly, "phrase_memory": exp_phrase_memory, "chat8d": exp_chat8d}
 
 
 def main(argv=None) -> Path:

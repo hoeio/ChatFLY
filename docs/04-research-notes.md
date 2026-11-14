@@ -94,6 +94,12 @@ The eLife pages were bot-blocked, so these were read on PMC: Li et al. 2020 (htt
   - `o` marks commands and vocatives.
 
   Sources: https://sona.pona.la/wiki/Grammar, https://sona.pona.la/wiki/Particles, https://sona.pona.la/wiki/mi_li_and_sina_li
+- **Yes/no questions (verified, search summary of sona.pona.la Questions and V ala V pages and lipu sona lesson 7, 2026-11-14):**
+  - a statement plus `anu seme` ("or what?"), or the verb repeated around `ala` (`sina kama ala kama?`);
+  - yes is answered by repeating the verb, no by the verb plus `ala` (or `ala` alone).
+  - 8d uses `anu seme`, so the grammar fly marks the question by its state. The reply is a whole sentence: the statement, or the statement with `ala`.
+
+  Sources: https://sona.pona.la/wiki/Questions?oldid=669, https://sona.pona.la/wiki/V_ala_V, https://lipu-sona.pona.la/en/7
 - **License of Lang's texts (partly verified, sources conflict):**
   - Wikisource lists the 2021 dictionary as CC0 (https://en.wikisource.org/wiki/Toki_Pona_Dictionary). Older sona pona revisions say CC BY 4.0.
   - Wikipedia says the 2014 English book was dedicated to the public domain in April 2026 (https://en.wikipedia.org/wiki/Toki_Pona).

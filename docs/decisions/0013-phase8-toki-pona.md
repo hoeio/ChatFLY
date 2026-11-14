@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d in progress; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -403,6 +403,34 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - Two modifiers degrade (0.82) as 7b predicted. The loss is coverage (the fly declines to answer); what it does answer is still 0.99 right.
 - **New limit:** at this setting a bare word is answered only 57% of the time (all of those right). A single word's PNs drive almost no KCs at the all-claws threshold (as in 8b-2). No single KC setting serves both words and phrases: the 2000/450 setting gives bare words 1.000 (seed 10 check) but phrases 0.55. 8d has to deal with this, for example with a memory fly per phrase length.
 - **Glue:** the phrase union is an interface rule (a mixture of the words' odors). The phrase boundaries come from the grammar fly's states.
+
+## Decisions (8d: a question-answering exchange carried by flies, H4; written before the run)
+
+- **Exchange** (`src/chatfly/tokipona_chat.py`):
+  - The user teaches 80 facts by statements: "jan pona li suli", or "jan pona li suli ala" for no.
+  - Then the user asks 120 questions: "jan pona li suli anu seme?", the `anu seme` question form verified in `docs/04-research-notes.md`. 80 are about taught facts; 40 use a subject never mentioned (a head with an unused modifier).
+  - The fly replies with a whole sentence: the statement, the statement with `ala`, or "mi sona ala" (I don't know).
+  - Subjects are a head plus one modifier (8c level 1); there are 4 predicate words.
+- **8d grammar** (`grammar_d`): 11 states over 6 classes (mi/sina, other content words, `li`, `ala`, `anu`, `seme`). A subject, `li`, a one-word predicate, then nothing (P), `ala` (PN) or `anu seme` (Q).
+- **Flies**, each with the setting chosen in its own phase (nothing is selected in 8d):
+  - class fly (8b-3: 2000 KCs, threshold 450, class balance), over the 8d classes;
+  - grammar fly (8b: one fly, table, 2000 KCs, threshold 650, confidence 0.1), on the 8d grammar. It reads the user's words, and it gives the speaker its state while the speaker talks (closed loop);
+  - memory fly (8c: 16000 KCs, threshold 850, confidence 0.2);
+  - speaker (8a-3: `k2n20`, 16000 KCs, threshold 850, state balance). Its states are the grammar fly's, and its table is the reply sentences.
+- **Glue** (interface rules):
+  - subject and predicate roles are read off the grammar fly's states;
+  - the predicate word selects the memory's output pair (as Zumi 2's property pairs);
+  - the reply plan (cue list) is built from the question's words and the memory's answer;
+  - the cue pointer.
+
+  Following the user's standing request, a fly replacement for a glue item is tried after 8d's own test.
+- **Check on selection seed 10:** reply exact 0.992.
+- **Controls,** one per fly role: the memory fly, the speaker and the class fly each without a KC layer.
+- **Gate** (test seeds 105–109):
+  - reply exact ≥ 0.95 on every seed, over all 120 questions;
+  - mean reply exact ≤ 0.80 for each control.
+
+  A control that passes is recorded as "that fly's KC layer is not needed here".
 
 ## Consequences
 

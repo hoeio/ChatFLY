@@ -131,3 +131,7 @@ The memories' outputs reach the speaker as odors (yes / no / sure / doubt), repl
 ## 8g-2: the reply decision as a fly for yes/no questions — gate passed
 
 The yes/no memory's odor goes to the speaker, which itself chooses the answer, `ala` or "mi sona ala" (no threshold, no reply branch); object questions keep the glue but carry their own odor channels. Test seeds 165–174: replies 0.992 (min 0.980), yes/no 0.989, objects 1.000. Yes/no exact in the controls: no-KC memory 0.235, no-KC speaker 0.000, no odor 0.368. The odor interface, the practice session and the object path remain glue.
+
+## 8h: role and pointer flies — gate not passed
+
+A role fly (reached state -> role) and a pointer fly ((cue, said word) on separate PN patterns -> next/stay) replace two rules. Test seeds 175–184: 0.978, min 0.837 (seed 178). Without the pointer fly's KC layer 0.157; without the role fly's, the same 0.978 (a lookup, as 8b-3). Seed 178 fails the same way with both rules restored: the speaker says "mi sona open" for an unknown object, a context 8g-2's rehearsal misses because it checks against the mean of a class that mixes known and unknown object odors.

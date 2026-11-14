@@ -708,6 +708,32 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - reply exact ≤ 0.80 for `role_no_kc` and `pointer_no_kc` (8b-3's rule for a new fly).
 - **Prediction:** the role fly is a lookup on the state, and seed 10 shows no KC need. So `role_no_kc` will very likely be above 0.80, and the gate then fails formally on it, as 8b-3 did. That would read: the role glue can be a fly, but the KC layer adds nothing there.
 
+### 8h result (`results/20261114-232704_phase8h_chat_s0`): gate not passed
+
+- **Selection** (seeds 10–19): both pointer settings 0.983; 2000 KCs / 650 was chosen.
+- **Test** (seeds 175–184): reply exact mean 0.978, min **0.837 (seed 178**: unknown subjects 0.276). The other nine seeds are ≥ 0.98.
+- **Controls:**
+
+  | control | measure | value |
+  |---|---|---|
+  | `memory_no_kc` | yes/no exact | 0.251 |
+  | `speaker_no_kc` | yes/no exact | 0.000 |
+  | `odor_off` | yes/no exact | 0.430 |
+  | `pointer_no_kc` | reply exact | 0.157 |
+  | `role_no_kc` | reply exact | **0.978**, identical to the full run on every seed, as predicted |
+
+- **Verdict:** two criteria fail:
+  - seed 178 is below 0.95;
+  - `role_no_kc` is above 0.80.
+- **Diagnosis** (after the gate, on test seed 178):
+  - Replacing the role and pointer flies by the old rules gives the same 0.837, so the new flies are not the cause.
+  - The failure is in 8g-2's object path: for an unknown subject's "what" question the glue plan is "mi sona ala", but the speaker says "mi sona open". The one context (P, cue `ala`, object odor) is wrong.
+  - Rehearsal should have caught it, but it checks each context with the **mean** practice odor of its class. 8g-2's single "obj" class mixes known objects (sure about 0.5) with unknown ones (doubt 1.0), so the mean (0.48 / 0.52) is neither.
+  - This is a flaw in 8g-2's design that showed up on this seed only. It is not a property of 8h.
+- **Reading:**
+  - **The pointer fly works and needs its KC layer** (0.157 without it). The cue pointer can be a fly.
+  - **The role fly works, but its KC layer adds nothing** (8b-3's outcome): the role is a lookup on the state.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

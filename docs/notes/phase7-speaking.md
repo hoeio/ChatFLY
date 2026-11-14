@@ -119,3 +119,53 @@ Options (for the user):
 2. Keep working on 7b: more training, or a finer routing of fly 0.
 3. Re-scope 7b's gate to non-salad turns. This changes a criterion after seeing results, so it
    is listed only for completeness and is not recommended.
+
+## 7c: grammar state tracked by the fly — gate NOT passed (control)
+
+Run `results/20261114-092733_phase7c_grammar_s0` (`configs/phase7c_grammar.yaml`, rate model).
+The utterance grammar is a 14-state FSM over 21 words, with strict property order (Zumi 3).
+Only valid transitions are taught, and a decoded confidence below the threshold reads as "dead" (ADR 0012).
+Thresholds were chosen per run on seeds 10–14 (dev).
+
+Test seeds 60–64, mean (min):
+
+| run | threshold | step acc | utterance acc | salad rejected | valid accepted |
+|---|---|---|---|---|---|
+| **routed readout, state token** | 0.05 | 1.000 (1.000) | 1.000 (1.000) | 1.000 | 1.000 |
+| teacher shuffle | 0.01 | 0.776 | 0.101 | 0.947 | 0.092 |
+| **routed, no KC layer** | 0.15 | 0.997 (0.986) | **1.000 (0.999)** | 0.999 | 1.000 |
+| single fly (state + word) | 0.00 | 0.254 | 0.733 | 0.385 | 0.903 |
+| routed readout, state + word | 0.10 | 0.858 | 0.956 | 0.966 | 0.960 |
+
+Speaker (7b split speaker; fly 0 smells the fly's grammar state + last user word):
+
+| | perplexity | grammatical | appropriate | exact |
+|---|---|---|---|---|
+| 7c speaker | 1.77 (1.70) | 1.000 (1.000) | **0.999 (0.997)** | 0.673 (0.620) |
+| 7b speaker | 1.79 | 1.000 | 0.935 (0.905) | 0.680 |
+| 5-gram (7a) | 1.37 | 1.000 | 0.994 | 0.789 |
+
+Exact by kind (7c speaker): teach 1.000 · statement 1.000 · bad **0.992** (7b: 0.421) · ask 0.502 ·
+what 0.565 · where 0.319 · yes/no 0.198 (7b: 0.536).
+
+**Verdict (ADR 0012 gate): not passed.**
+- Every fly criterion is met on every test seed: step and utterance accuracy 1.000, speaker grammatical 1.000, speaker appropriate ≥ 0.9965.
+- The control criterion fails. The same routing **without a KC layer** reaches utterance accuracy 0.9997, above the 0.90 limit.
+
+Reading:
+- **The 7b failure is fixed.** With the fly's own grammar state, word salad gets `e` 99.2% of
+  the time (7b 42%). The speaker's form is right 99.9% of the time, above the 5-gram's 0.994.
+- **But the KC layer is not what tracks the grammar.** Routing by word selects a readout, and
+  within it the 14 state patterns are a linear lookup. This is the revised Gate D finding again:
+  the input-gated readout (designer-set glue) is the mechanism. Without routing, the one-fly
+  version (where KC conjunctions would have to do it) reaches only 0.73.
+- **Content dropped on yes/no** (0.536 → 0.198). Fly 0 now sees (DONE, `ba`) for both
+  `<place> ba?` and `<noun> <prop> ba?`, so their reply distributions are merged. Content is 7d's job
+  (memory fly and ring), not part of this gate.
+
+Options (for the user):
+1. **Keep this architecture and go on to 7d**, recording that grammar tracking rests on the
+   word-routed readout, not on the KC layer. The chatbot works; the claim about the fly is narrower.
+2. **Look for a design in which the KC layer is needed**: no word routing, with the grammar split into sub-machines small
+   enough for one fly (≤ 3–4 states, Phase 4). This is research with an uncertain outcome.
+3. Re-run with a different control limit. This changes a criterion after seeing results; not recommended.

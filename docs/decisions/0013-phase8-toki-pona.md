@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e in progress; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e: replies 0.923, gate not passed (seed 117's grammar fly misses one transition); 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -496,6 +496,35 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
   - reply exact ≥ 0.95 on every seed, over all questions;
   - mean ≤ 0.80 for each control.
 - **Glue, new:** routing the object memory by predicate. A fly replacement (unrouted, subject + predicate smelled together) follows the test, as in 8d-2.
+
+### 8e result (`results/20261114-192004_phase8e_chat_s0`): gate not passed
+
+- **Selection** (mean reply exact): 0.988 / **1.000** / 0.995 (16000 KCs at thresholds 0.05 / 0.1 / 0.2) and 0.992 / 0.999 / 0.999 (32000). Chosen: 16000 KCs, threshold 0.1.
+- **Test** (seeds 115–119, 123–152 questions per seed):
+
+  | seed | 115 | 116 | 117 | 118 | 119 | mean |
+  |---|---|---|---|---|---|---|
+  | reply exact | 0.963 | 0.993 | **0.730** | 0.993 | **0.935** | 0.923 |
+  | yes/no | 1.000 | 1.000 | 0.981 | 0.979 | 0.863 | 0.965 |
+  | what | 0.909 | 0.983 | 1.000 | 1.000 | 0.980 | 0.974 |
+  | unknown subject | 1.000 | 1.000 | **0.000** | 1.000 | 1.000 | 0.800 |
+  | after a change of mind | 0.938 | 1.000 | 1.000 | 1.000 | 1.000 | 0.988 |
+
+  - Both memory flies without KC layers: 0.470. The speaker without its KC layer: 0.000.
+  - Statements were read on every seed (1.000).
+- **Diagnosis** (after the gate, nothing changed):
+  - **Seed 117:** the grammar fly, trained on the 8e grammar with 8b's settings, misses one transition, S0 + `mi`/`sina` → MI (low confidence, read as dead). So "mi sona ala" breaks after "mi". Its step accuracy is 0.990; the other test seeds are 1.000. The 8e grammar fly was not validated on its own before the test.
+  - **Seed 119:** of the 63 yes/no-form questions, 12 got "mi sona ala" (some of them correctly, for unknown subjects) and 7 were malformed replies. This is memory under conversational load plus some speaker errors.
+- **What works:** objects, "what" questions (0.974), changes of mind (0.988), and the KC layers of both memories and the speaker are needed.
+
+### 8e-2: the object memory without routing (standing request; written before the run)
+
+- The object memory smells the subject words and the predicate together, with one weight set (`routing: none`).
+- **Selection** on seeds 10–14 (mean reply exact): KC count 16000, 32000, 64000 × threshold 0.05, 0.1, 0.2, in that tie order.
+- **Gate** (new test seeds 120–124, `configs/phase8e2_chat.yaml`). It judges the replaced glue:
+  - "what" questions exact ≥ 0.95 on every seed;
+  - mean ≤ 0.80 without the memory KC layers.
+- Expected to fail like 8d-2 (three-word unions). The object code has 8 choices, not a yes/no.
 
 ## Consequences
 

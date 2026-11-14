@@ -321,14 +321,15 @@ class ObjectMemory:
         rs, c = cfg["rng_streams"], copy.deepcopy(cfg)
         k, n = (int(x) for x in om["coding"][1:].split("n"))
         sets = list(combinations(range(n), k))
-        self.objects, self.preds = list(objects), list(preds)
+        self.objects, self.routed = list(objects), om.get("routing", "pair") == "pair"
+        self.preds = list(preds) if self.routed else ["any"]  # "none" (8e-2): subject + predicate smelled together
         self.code = [list(sets[i]) for i in np.random.default_rng([seed, 8, 14]).permutation(len(sets))[:len(objects)]]
         c["mb"]["compartments"], c["tokens"]["names"] = [str(i) for i in range(n)], [f"w:{w}" for w in vocab]
         c["mb"]["n_kc"], c["rate"]["kc_theta"] = om["n_kc"], om["kc_theta"]
         self.pats = token_patterns(c, np.random.default_rng([seed, 8, 15]))
         sim = SIMULATORS[kind](c, seed + 5 * rs["fly"], noise_seed=seed * rs["noise"] + 11)
-        self.slots = ([PNDirect(sim, c, n, np.random.default_rng([seed, 8, 16, i]), kind == "spiking") for i in range(len(preds))]
-                      if control == "no_kc" else [WeightSlot(sim) for _ in preds])
+        self.slots = ([PNDirect(sim, c, n, np.random.default_rng([seed, 8, 16, i]), kind == "spiking") for i in range(len(self.preds))]
+                      if control == "no_kc" else [WeightSlot(sim) for _ in self.preds])
         self.n, self.dur, self.n_teach, self.thr = n, c["protocol"]["duration_ms"], om["n_teach"], om["threshold"]
 
     def smell(self, words):
@@ -337,13 +338,16 @@ class ObjectMemory:
     def teach(self, subj, pred, obj):
         dan = np.ones(self.n)
         dan[self.code[self.objects.index(obj)]] = 0.0
-        s = self.slots[self.preds.index(pred)]
+        s, key = self.slot(subj, pred)
         for _ in range(self.n_teach):
-            s.present(self.smell(subj), self.dur, dan)
+            s.present(self.smell(key), self.dur, dan)
+
+    def slot(self, subj, pred):
+        return (self.slots[self.preds.index(pred)], subj) if self.routed else (self.slots[0], list(subj) + [pred])
 
     def ask(self, subj, pred):
-        s = self.slots[self.preds.index(pred)]
-        r = group_rates(s, s.present(self.smell(subj), self.dur)["mbon"])
+        s, key = self.slot(subj, pred)
+        r = group_rates(s, s.present(self.smell(key), self.dur)["mbon"])
         score = np.array([r[g].mean() for g in self.code])
         o = np.sort(score)[::-1]
         if o[0] <= 0 or (o[0] - o[1]) / o[0] < self.thr:

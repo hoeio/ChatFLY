@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); started at the user's request on 2026-11-14
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds), see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context

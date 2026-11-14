@@ -257,3 +257,52 @@ Reading:
   memory rule falls to 0.53 while the KC memory keeps 0.92. This is the control 7c and 7d lacked.
   It still falls short of the 0.95 bar at 40 things, so the memory fly's capacity is the limit.
 - Glue, unchanged from 7d plus: pronoun resolution (topic = last named thing), the cue pointer, and the temperature.
+
+## 7f: larger speaker KC layer — gate NOT passed (perplexity; load memory on 2 of 5 seeds)
+
+Run `results/20261114-121352_phase7f_zumi3_s0` (`configs/phase7f_zumi3.yaml`, commit 2ed4308).
+Fresh test seeds 70–74; otherwise as 7e, except that the speaker has 8000 KCs (ADR 0012, 7f).
+Values are means, with the minimum in brackets.
+
+| | perplexity | exact | grammatical | appropriate | memory exact |
+|---|---|---|---|---|---|
+| **flies** | 1.459 | **0.988 (0.979)** | 0.999 | 0.999 | 0.973 (0.947) |
+| flies, load (40 things) | 1.536 | 0.974 (0.961) | 0.998 | 0.998 | **0.952 (0.924)** |
+| control: shuffled | 2.768 | 0.667 | 0.999 | 0.998 | 0.442 |
+| control: load, memory without KC | 2.306 | 0.769 | 0.998 | 0.997 | **0.549** |
+| 8-gram | 1.322 | 0.765 | 1.000 | 0.996 | |
+| RNN | 1.283 | 0.750 | 1.000 | 0.998 | |
+| GRU | **1.267** | 0.761 | 1.000 | 0.998 | |
+
+Memory exact under load, by seed: 70 0.924, 71 0.956, 72 0.953, 73 0.948, 74 0.977.
+
+**Verdict: not passed.**
+- Perplexity is above the GRU's (1.459 vs 1.267).
+- Memory exact under load is below 0.95 on seeds 70 and 73.
+- Every other criterion passes: sampled grammatical, appropriate and exact ≥ 0.97 on every seed, no runaway replies, and both controls fail.
+- Against 7e (other test seeds), the larger speaker raises load memory from 0.917 to 0.952 and exact from 0.978 to 0.988.
+
+## Phase 7 closing summary (2026-11-14, closed at the user's request)
+
+What the system can do, on held-out test seeds:
+- **It speaks Zumi word by word.** Every reply word is sampled from MBON group rates. Replies are grammatical and appropriate 99.9% of the time. They use the pronoun `to`, ask back, and have the oracle's diversity.
+- **What it says is right**, because the answer comes from flies:
+  - the ring fly's place;
+  - the memory fly's facts, taught earlier in the same dialogue;
+  - the comparator fly's yes / no.
+
+  Exact replies: 0.988. The n-gram, RNN and GRU baselines get about 0.75–0.77, since they cannot remember across turns.
+- **The KC layer is needed for memory under load**: without it, memory exact is 0.55; with it, 0.95.
+
+What it cannot do, and where the credit goes:
+- **Perplexity is not GPT-2 like.** Normalized MBON rates are a poorly calibrated next-word distribution; a gated RNN is better (1.27 vs 1.46). Good samples need a sharp decoder (T = 0.1), which the interface sets.
+- **Long "what" lists are the weak point.** The memory fly holds 40 things almost perfectly. The speaker loses rare (previous word, cue) contexts to frequent end words, so long lists sometimes break off.
+- **Glue (designer rules):**
+  - the parse routes questions to the flies, and the readouts are selected by the word;
+  - the cue lists and their pointer;
+  - pronoun resolution;
+  - absorbing dead and lost states;
+  - the split between the first word and later words;
+  - the temperature.
+- **The routed control was not ruled out for grammar or the speaker.** In 7c, grammar tracking also works without the KC layer under the same routing. The KC layer's own contribution is shown only for memory.
+- The 7e/7f gate, the user's "GPT-2 level in Zumi", is **not passed**.

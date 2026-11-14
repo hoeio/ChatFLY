@@ -1,6 +1,6 @@
 # 0012. Phase 7: a fly that says its Zumi replies (7a: corpus, metrics, baselines)
 
-- Status: Accepted (7a, 7b design); final goal agreed with the user on 2026-11-14
+- Status: Accepted; Phase 7 closed on 2026-11-14 (final gate not passed, see notes)
 - Date: 2026-11-14
 
 ## Context

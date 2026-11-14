@@ -64,6 +64,8 @@ Each phase must pass its acceptance criteria before the next one begins. If it d
 - **7b:** speaking fly v0 (MBON groups = reply words, previous word fed back); criteria set from 7a
 - **7c (branch point):** the fly tracks the grammar state itself (several flies; Phase 4 capacity)
 - **7d:** replies use the memory fly and the ring across turns
+- **7e/7f:** Zumi 3 (pronoun, ask-back, sampled multi-sentence replies), GPT-2-level criteria
+- **Status (2026-11-14): closed.** 7a passed. 7b–7f gates not passed; the results and what they show are in `docs/notes/phase7-speaking.md`
 
 
 

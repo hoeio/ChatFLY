@@ -65,3 +65,57 @@ are the 18 reply words plus end-of-reply. On the test seeds it should reach:
 - controls (shuffled teacher, no KC layer, degree-preserving shuffle of PN→KC) clearly below.
 
 Content (exact on ask / what / where / yes-no) is not expected before 7d.
+
+## 7b: speaking fly v0 — gate NOT passed
+
+Run `results/20261114-090830_phase7b_speak_s0` (`configs/phase7b_speak.yaml`, rate model).
+Architecture "split" (ADR 0012): fly 0 says the first word from the user's last two words,
+and fly 1 says every later word from (last user word, previous fly word). Training used 300
+dialogues × 3 epochs. Evaluation used 200 dialogues per seed.
+
+Selection (seeds 10–14, dev; mean appropriate / grammatical): (0.1, 450) 0.875 / 1.0 ·
+(0.15, 450) 0.760 / 1.0 · **(0.15, 650) 0.940 / 1.0** · (0.2, 650) 0.855 / 1.0.
+
+Test (seeds 60–64, test split), mean (min):
+
+| | perplexity | grammatical | appropriate | exact |
+|---|---|---|---|---|
+| **fly (split)** | 1.79 (1.74) | 1.000 (1.000) | **0.935 (0.905)** | 0.680 (0.619) |
+| shuffled teacher | 31.2 | 0.039 | 0.003 | 0.003 |
+| no KC (same rule on PNs) | 3.01 | 1.000 | 0.611 (0.381) | 0.437 |
+| shuffled wiring | 1.80 | 1.000 | 0.931 (0.908) | 0.665 |
+| context table (ceiling for these inputs) | 1.42 | 0.987 | 0.976 | 0.765 |
+| 5-gram (7a) | 1.37 | 1.000 | 0.994 | 0.789 |
+
+Exact by kind:
+
+| | teach | statement | bad | ask | what | where | yes/no |
+|---|---|---|---|---|---|---|---|
+| fly | 1.000 | 1.000 | 0.421 | 0.616 | 0.565 | 0.322 | 0.536 |
+| context table | 1.000 | 1.000 | 0.767 | 0.746 | 0.565 | 0.379 | 0.673 |
+
+**Verdict: not passed.**
+- The gate needed appropriate ≥ 0.95 on every test seed; the fly's mean was 0.935 and its minimum 0.905.
+- Grammatical passed (1.000).
+- Shuffled teacher and no-KC are well below.
+- The shuffled-wiring control (0.931) is not below 0.90.
+
+Analysis:
+- **The miss is word salad.** "Bad" turns (10%) must get `e`; the fly says it 42% of the
+  time (ceiling 77%). On the other 90% of turns its appropriateness is about
+  (0.935 − 0.099 × 0.421) / 0.901 ≈ 0.99, and the table's about 0.999.
+  - With only the last two words, salad that ends like a real sentence can't be detected.
+  - The fly also does worse than the table because rare salad contexts share KCs with frequent valid ones.
+- **The shuffled-wiring control is uninformative on synthetic wiring.** A degree-preserving
+  shuffle of random PN→KC wiring is another random network, so it is expected to match. It
+  becomes a real test only on FlyWire wiring (Phase 3 data).
+- **The KC layer matters.** Without it, the same rule and readout reaches appropriate 0.61.
+- The fly is below the table on ask and yes/no as well: it sometimes says `ya`/`na` where the
+  most frequent answer is `hm`/`na`. This costs exactness, not form.
+
+Options (for the user):
+1. Move on to 7c: the fly tracks the grammar state of the whole utterance (several flies),
+   which is what salad detection needs. The 7b result stays as "not passed".
+2. Keep working on 7b: more training, or a finer routing of fly 0.
+3. Re-scope 7b's gate to non-salad turns. This changes a criterion after seeing results, so it
+   is listed only for completeness and is not recommended.

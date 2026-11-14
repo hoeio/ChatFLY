@@ -487,6 +487,7 @@ class SpeakingFly:
                                 + [f"p:{w}" for w in self.vocab[:-1] + [SEP]])
         c["tokens"]["pn_active_frac"] = sp["pn_active_frac"]
         c["rate"]["kc_theta"] = sp.get("kc_theta", c["rate"]["kc_theta"])
+        c["mb"]["n_kc"] = sp.get("n_kc", c["mb"]["n_kc"])  # rate model: drives are normalized by n_kc
         if control == "shuffled_wiring":
             c["mb"]["wiring"] = "shuffle"
         self.pats = token_patterns(c, np.random.default_rng(seed + rs["tokens"]))

@@ -151,6 +151,26 @@ The user asked to raise the bar to "GPT-2 level language use". In Zumi this mean
   | shuffled | exact | 0.70 |
   | no-KC memory under load | memory exact | 0.90 |
 
+## Decisions (7f)
+
+- **The user asked for more memory capacity after 7e, and then to close Phase 7** (2026-11-14).
+- **Diagnosis on selection seeds: memory is not the bottleneck.**
+  - Replaying the load corpus (40 things) through the memory fly alone gives ≥ 99.7% correct pairs on seeds 10–11.
+  - Almost every load error comes with correct cues: the speaker drops a word of a "what" list. Examples are `to .` instead of `to ka ho .`, and ending the reply after `pi` instead of saying `lo`.
+  - Rare (previous word, cue) contexts lose their KCs to the frequent end targets (`.`, EOS). This is the 7b takeover again.
+- **What was tried** on selection seeds 10, 11 and 14. Each run used 30 dev dialogues plus 4 load dialogues; the measure was memory exact under load.
+
+  | change | result |
+  |---|---|
+  | more speaker training (300 → 1000 → 2000 dialogues at 2000 KCs) | no gain, non-monotonic |
+  | KC threshold and token density | worse, or silent |
+  | each distinct (context, word) taught once per epoch | 0.2–0.9; depression-only weights saturate, and 60 and 200 epochs give the same result |
+  | **speaker KC layer** 4000 / 8000 / 16000 (rate model; drives are normalized by n_kc) | 8000: seed 10 0.998, seed 11 0.939, seed 14 0.937 |
+
+  Combining 8000 KCs with more data was noisy (seed 14 gave 0.897 with 1000 dialogues and 0.935 with 2000).
+- **Chosen: speaker `n_kc` 8000, 300 dialogues** (`speak.n_kc`, speaker only; every other fly keeps 2000). Each Phase 7 fly, and the speaker now in particular, has more KCs than the ~2000 of one hemisphere. This is a model choice, not biology.
+- **Fresh test seeds 70–74** (60–64 were used by 7e). The 7e gate is unchanged (`configs/phase7f_zumi3.yaml`).
+
 ## Consequences
 
 - 7b is compared with these numbers (`docs/notes/phase7-speaking.md`). The fly earns credit

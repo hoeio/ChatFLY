@@ -165,7 +165,7 @@ def _djob(args):
     for j in rng.permutation(len(qs)):
         sj, i, want = qs[j]
         got = ch.hear(list(sj) + ["li", ch.preds[i], "anu", "seme"])
-        replies.append((sj in ch.unknown, got == want, ch.read(got)[0] in ACCEPT_D if got else False))
+        replies.append((sj in ch.unknown, got == want, got not in ([], ["?"]) and ch.read(got)[0] in ACCEPT_D))
     out = {"seed": seed, "controls": list(controls), "statements_read": float(np.mean(taught_ok)),
            "reply_exact": float(np.mean([e for _, e, _ in replies])),
            "taught_exact": float(np.mean([e for u, e, _ in replies if not u])),

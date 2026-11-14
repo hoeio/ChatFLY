@@ -84,3 +84,12 @@ The memory fly runs at 16000 KCs with threshold 850, chosen on selection seeds. 
 - bare words at this setting: only 0.565 answered (all right). Single words are too sparse for the all-claws threshold, so no one setting serves words and phrases.
 
 Details: ADR 0013.
+
+## 8d: Toki Pona question answering by flies
+
+The user teaches 80 facts ("jan pona li suli [ala]") and asks 120 questions ("... anu seme?"); the fly answers with a sentence. On test seeds 105–109, replies are exact 0.995 (min 0.983); unknown subjects get "mi sona ala" every time.
+- Without the memory fly's KC layer: 0.455.
+- Without the speaker's KC layer: 0.000.
+- Without the class fly's KC layer: 0.937. This is above the 0.80 control limit, so the gate is formally not passed, as in 8b-3.
+
+Details: ADR 0013.

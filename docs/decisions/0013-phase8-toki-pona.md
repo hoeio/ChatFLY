@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e: replies 0.923, gate not passed (seed 117's grammar fly misses one transition); 8e-2 (unrouted object memory) fails (0.926); 8e-3 (re-selection) 0.956, one seed's speaker context fails; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) rejected at selection; 8a-3 (balanced teaching) **passed the 8a gate** on test seeds 80–84; **8b passed** on test seeds 90–94; 8b-2 (tokenizer as a fly): A and B fail; **8c passed** on test seeds 100–104; 8d: replies 0.995, gate not passed only by the class-fly control (as 8b-3); 8d-2 (unrouted memory) fails (0.815); 8e: replies 0.923, gate not passed (seed 117's grammar fly misses one transition); 8e-2 (unrouted object memory) fails (0.926); 8e-3 (re-selection) 0.956, one seed's speaker context fails; **8f (rehearsal) passed the gate** (0.997), but its test seeds had no failing context (ablation identical); on the old failing seeds rehearsal repairs all three; 8b-3: the class fly works (1.000) but the no-KC control does too (0.968), so its gate is not passed. **The user accepted it** (option 1): the class fly stays in the pipeline with the note "KC layer not needed", and from now on new glue is first tried as a fly, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -571,6 +571,26 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
 - **Gate (same as 8e):** reply exact ≥ 0.95 on every test seed; mean ≤ 0.80 for `memory_no_kc` and `speaker_no_kc` (both with rehearsal).
 - **Ablation, not gated:** `no_rehearse` (both flies without rehearsal) on the same test seeds, to show what rehearsal adds there.
 - **What would count against H6:** a seed still fails with one context wrong after rehearsal, or a no-KC control with rehearsal clears 0.80 (then the schedule, not the KC code, does the work).
+
+#### 8f result (`results/20261114-202506_phase8f_chat_s0`): gate passed, but the test seeds do not test H6
+
+- **Selection** (seeds 10–19): `rehearse` 1 and 3 tie in both stages (grammar fly: step accuracy 1.0 on 10/10; speaker: reply exact 0.997), so the listed order picks 1 for both.
+- **Test** (seeds 130–134): reply exact mean 0.997, min 0.993; "what" questions, unknown subjects and changes of mind 1.000 on every seed.
+  - `memory_no_kc` 0.476, `speaker_no_kc` 0.000, both with rehearsal. **Gate passed.**
+  - **Ablation `no_rehearse`: identical (0.997, min 0.993).** None of these five seeds had an outvoted context, so the pass is the 8 of 10 good-seed rate, not evidence for rehearsal.
+- **Diagnosis after the gate**, on the old failing test seeds (already used, so not a test; `diag_old_seeds.txt` in the run folder). Without rehearsal the old values come back exactly:
+
+  | seed | no rehearsal | rehearse 1 |
+  |---|---|---|
+  | 117 (grammar: S0 + `mi`) | 0.730 | 0.967 |
+  | 119 (memory under load, speaker) | 0.935 | 0.992 |
+  | 127 (speaker: S1 modifier) | 0.802 | 1.000 |
+
+- **Reading:**
+  - One round of re-teaching the wrong contexts repairs every single-context failure seen in 8e and 8e-3.
+  - The no-KC speaker stays at 0.000 with rehearsal, so the schedule does not do the work by itself.
+  - Over the 15 test seeds of 8e, 8e-3 and 8f, the chosen setting is ≥ 0.96 on all 15, but 3 of them are seeds it was diagnosed on. A clean test of H6 needs seeds where the plain fly fails. The next step would be a larger fresh test set, about 20 seeds, so that about 4 failing seeds are expected.
+  - Rehearsal is teacher glue: the teacher checks the fly's answers. It is the same kind as 8a-3's balance.
 
 ## Consequences
 

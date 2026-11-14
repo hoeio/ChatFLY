@@ -115,3 +115,7 @@ The failures:
 ## 8e-3: re-selection for the conversation — gate not passed
 
 The selection kept 8e's settings (grammar fly perfect on 10/10 selection seeds). On new test seeds 125–129, replies are 1.000 / 0.993 / 0.802 / 0.993 / 0.993. On seed 127 the speaker says `li` where a modifier belongs (one context outvoted, as in 8a), and the grammar fly accepts the broken reply. 8 of the 10 test seeds of 8e and 8e-3 reach ≥ 0.96.
+
+## 8f: rehearsal — gate passed, H6 supported only on the old failing seeds
+
+After teaching, the teacher asks each fly every taught context and re-teaches the wrong ones (1 round, chosen on seeds 10–19). Test seeds 130–134: replies 0.997 (min 0.993); no-KC memory 0.476, no-KC speaker 0.000. The ablation without rehearsal gives the same 0.997, since none of these seeds had an outvoted context. On the old failing seeds (diagnosis, not a test), rehearsal lifts 117 from 0.730 to 0.967, 119 from 0.935 to 0.992 and 127 from 0.802 to 1.000. A clean test needs a larger set of fresh seeds.

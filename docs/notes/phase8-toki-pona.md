@@ -123,3 +123,7 @@ After teaching, the teacher asks each fly every taught context and re-teaches th
 ## 8f-2: rehearsal on 20 fresh seeds — gate passed
 
 Seeds 135–154 with rehearsal fixed at 1 round: replies 0.998 (min 0.986); no-KC memory 0.495, no-KC speaker 0.000. Without rehearsal, one seed fails (137: 0.852), and rehearsal brings it to 1.000. All 25 fresh seeds of 8f and 8f-2 are ≥ 0.986 with rehearsal.
+
+## 8g: the reply decision as a fly — gate not passed
+
+The memories' outputs reach the speaker as odors (yes / no / sure / doubt), replacing the confidence thresholds and the reply branch; the speaker is taught with odors from a practice session. Test seeds 155–164: replies 0.877 (min 0.725). yes/no 0.972 and unknown subjects 0.985 work, but "what" questions fall to 0.717: the object memory's `sure` odor is only about 0.3–0.45 (its 2-of-20 code makes the runner-up share a group), too weak for the speaker's sparse KCs, so known objects often get "mi sona ala". Controls: no-KC memory 0.302, no-KC speaker 0.000, no odor 0.591. The glue stays.

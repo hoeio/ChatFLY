@@ -641,6 +641,24 @@ The user asked whether the tokenizer's word → class step can be a fly. Two way
     - `odor_off` (the speaker gets no odor at test). On seed 10, the odor-free speaker still says object replies right (1.000) but fails on yes/no (0.321) and unknown subjects (0.0).
   - Reference: 8f-2 with the glue, 0.998.
 
+### 8g result (`results/20261114-210100_phase8g_chat_s0`): gate not passed
+
+- **Selection** (seeds 10–19): mean reply exact 0.898 / 0.910 / 0.899 / 0.909. `n_practice` 120 with `rehearse` 1 was chosen. Already below 0.95 at selection.
+- **Test** (seeds 155–164): reply exact mean 0.877, min 0.725 (seed 160).
+  - yes/no 0.972 (min 0.912);
+  - unknown subjects 0.985 (min 0.889);
+  - **"what" questions 0.717 (min 0.269);**
+  - changes of mind 0.894.
+- **Controls:** `memory_no_kc` 0.302, `speaker_no_kc` 0.000, `odor_off` 0.591. All three are ≤ 0.80; `odor_off` still says object replies right, 1.000, as on seed 10.
+- **Verdict:** the first criterion fails on 8 of 10 seeds.
+- **Diagnosis** (after the gate, on selection seeds 11 and 12, 54 object questions each):
+  - The main failure is "mi sona ala" for a fact the object memory holds, with its top word right: 17 and 22 cases.
+  - Broken frames: 1 and 6.
+  - The object memory's `sure` channel is structurally weak, about 0.3–0.45. In its 2-of-20 code the runner-up object shares a group with the winner. An odor scaled to 0.3 barely drives the speaker's KCs at the all-claws threshold, so known facts and unknown subjects smell alike: both are mostly `doubt`.
+  - The old glue threshold was 0.1 on the same quantity.
+  - The yes/no memory gives `yes`/`no` at about 0.7, which the speaker reads, though below the glue pipeline (0.972 against 0.993 in 8f-2).
+- **Reading:** taking the reply decision away from the code works for the yes/no memory, but not yet at the glue's accuracy. It fails for the object memory, because a graded odor near 0.3 is below what the speaker's sparse KC code can see. The glue (confidence thresholds and reply branch) stays in the pipeline until the user decides.
+
 ## Consequences
 
 - 8a is cheap (about 1 s per job in the rate model) and decides whether the rest is worth doing.

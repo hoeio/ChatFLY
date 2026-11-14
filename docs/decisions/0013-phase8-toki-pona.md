@@ -1,6 +1,6 @@
 # 0013. Phase 8: can the current fly learn a subset of Toki Pona? (hypotheses)
 
-- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds), see `docs/notes/phase8-toki-pona.md`
+- Status: Accepted (plan and 8a design); 8a gate not passed (1 of 5 test seeds); 8a-2 (340 PNs) in progress, see `docs/notes/phase8-toki-pona.md`
 - Date: 2026-11-14
 
 ## Context
@@ -121,6 +121,26 @@ Means over seeds 10–14 at V = 112. The minimum is in brackets.
   - Sentence exact is 1.00 on seeds 10 and 14, and about 0.5 on 11–13.
   - Steps are ≥ 0.996 on every seed, so the remaining error is one end-of-sentence context ((PRED, `-`) or (OBJ, `-`)). Its few KCs are shared with the many (state, word) contexts.
   - With 113 cue tokens of 22 PNs among 150 PNs, every PN is in about 17 patterns, so the empty cue `-` cannot stay distinct. This is input crowding in PN space, and it is expected to fail the "every seed ≥ 0.95" gate. The gate is not changed.
+
+### 8a-2: a FlyWire-sized PN layer (decided by the user after the 8a gate failure; written before any run)
+
+- **Hypothesis.** The end-of-sentence failure is input crowding: 113 cue tokens of 22 PNs among 150 PNs. FlyWire v783 has 139 uniglomerular + 201 multiglomerular ALPNs per side (`docs/04-research-notes.md`), so 340 PNs is the measured size. With the same density, the expected overlap fraction between tokens is unchanged, but rare large chance overlaps (seed 64, seed 11) become rarer. With a lower density, tokens can stay as sparse as in 8a (22 PNs) and overlap less.
+- **Rejected if** no 340-PN condition beats the 150-PN condition on mean sentence exact over the selection seeds, or the chosen condition fails the gate.
+- **Conditions** (`configs/phase8a2_capacity_select.yaml`; V = 112, `k2n20`):
+
+  | PNs | token density | KCs | KC threshold |
+  |---|---|---|---|
+  | 150 | 0.15 | 16000 | 850 (8a's chosen condition) |
+  | 340 | 0.15 | 16000 | 850 |
+  | 340 | 0.10 | 16000 | 650 |
+  | 340 | 0.065 | 16000 | 650 |
+  | 340 | 0.065 | 32000 | 650 |
+
+- **Selection** on seeds 10–19 (ten seeds, because the failure is per seed). The chosen condition has the highest mean sentence exact. Ties (within 0.005) go to fewer PNs, then fewer KCs, then the lower threshold.
+- **Gate:** the same as 8a, on new test seeds 80–84 (`configs/phase8a2_capacity.yaml`).
+  - step accuracy ≥ 0.99 and sentence exact ≥ 0.95 on every test seed;
+  - mean sentence exact ≤ 0.70 for both controls (no KC layer, shuffled teacher).
+- **If it fails,** the result is reported and the user decides. Criteria are not changed.
 
 ## Consequences
 

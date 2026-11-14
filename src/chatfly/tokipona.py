@@ -91,6 +91,7 @@ class Speaker:
         c["mb"]["compartments"], c["mb"]["n_kc"] = [str(i) for i in range(n)], n_kc
         c["tokens"]["names"] = [f"s:{s}" for s in STATES] + [f"c:{w}" for w in list(words) + [NONE]]
         c["tokens"]["pn_active_frac"], c["rate"]["kc_theta"] = sp["pn_active_frac"], sp["kc_theta"]
+        c["mb"]["n_pn"] = sp.get("n_pn", c["mb"]["n_pn"])
         self.pats = token_patterns(c, np.random.default_rng(seed + rs["tokens"]))
         self.sim = SIMULATORS[kind](c, seed, noise_seed=seed * rs["noise"] + 8)
         if control == "no_kc":
@@ -130,8 +131,9 @@ class Speaker:
 
 
 def _job(args):
-    kind, cfg, seed, v, coding, (n_kc, theta), control = args
-    cfg = {**cfg, "capacity": {**cfg["capacity"], "kc_theta": theta}}
+    kind, cfg, seed, v, coding, cond, control = args
+    n_kc, theta = cond["n_kc"], cond["kc_theta"]
+    cfg = {**cfg, "capacity": {**cfg["capacity"], **cond}}
     t0, cc = time.time(), cfg["capacity"]
     words = words_for(v, seed)
     sp = Speaker(kind, cfg, seed, words, coding, n_kc, control)
@@ -140,9 +142,9 @@ def _job(args):
     step = float(np.mean([sp.say(s, c) == t for s, c, t in tab]))
     msgs = messages(words, cc["n_messages"], seed)
     exact = float(np.mean([sp.speak(m) == sentence(m) for m in msgs]))
-    log.info("%s seed %d V %d %s KC %d theta %d %s: step %.3f sentence %.3f groups %d (%.0fs)", kind, seed,
-             v, coding, n_kc, theta, control, step, exact, sp.n, time.time() - t0)
-    return {"seed": seed, "V": v, "coding": coding, "n_kc": n_kc, "kc_theta": theta, "control": control,
+    log.info("%s seed %d V %d %s %s %s: step %.3f sentence %.3f groups %d (%.0fs)", kind, seed,
+             v, coding, cond, control, step, exact, sp.n, time.time() - t0)
+    return {"seed": seed, "V": v, "coding": coding, "cond": cond, "n_kc": n_kc, "kc_theta": theta, "control": control,
             "groups": sp.n, "step_acc": step, "sentence_exact": exact}
 
 
@@ -151,21 +153,22 @@ def exp_capacity(cfg: dict, seed: int) -> dict:
     from chatfly.zumi3 import merged
 
     cfg, cc = merged(cfg), cfg["capacity"]
+    conds = cc.get("conds") or [{"n_kc": n, "kc_theta": t} for n, t in cc["kc"]]
     out = []
     for kind in cfg["simulators"]:
         jobs = [(kind, cfg, s, v, cd, nk, None) for s in cfg["seeds"] for v in cc["vocab_sizes"]
-                for cd in cc["codings"] for nk in map(tuple, cc["kc"])]
+                for cd in cc["codings"] for nk in conds]
         jobs += [(kind, cfg, s, max(cc["vocab_sizes"]), cd, nk, ctl) for s in cfg["seeds"]
-                 for cd in cc["codings"] for nk in map(tuple, cc["kc"]) for ctl in cc["controls"]]
+                 for cd in cc["codings"] for nk in conds for ctl in cc["controls"]]
         with ProcessPoolExecutor(cfg.get("workers", 1)) as ex:
             res = list(ex.map(_job, jobs))
         rows = []
         def key(r):
-            return r["V"], r["coding"], r["n_kc"], r["kc_theta"], str(r["control"])
+            return r["V"], r["coding"], tuple(sorted(r["cond"].items())), str(r["control"])
 
         for k in sorted({key(r) for r in res}):
             rs = [r for r in res if key(r) == k]
-            row = {"V": k[0], "coding": k[1], "n_kc": k[2], "kc_theta": k[3], "control": k[4], "groups": rs[0]["groups"],
+            row = {"V": k[0], "coding": k[1], "cond": dict(k[2]), "control": k[3], "groups": rs[0]["groups"],
                    **{m: [float(np.mean([r[m] for r in rs])), float(np.min([r[m] for r in rs]))]
                       for m in ("step_acc", "sentence_exact")}}
             rows.append(row)

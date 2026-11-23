@@ -1,0 +1,17 @@
+# Phase 9 probe (ADR 0014): the probed flies end to end on real Tatoeba clauses. The user tells
+# n_facts clauses; then asks, in Toki Pona, "S li P e seme?", "S li seme?" and "seme li P [e O]?"
+# about each, and the two first kinds about unknown clauses. Replies are spoken by the speaker fly.
+experiment: probe9_integrate
+base: configs/phase6_zumi.yaml
+seed: 0
+select_seeds: [10, 11, 12, 13, 14]
+workers: 5
+parts:
+  grammar: configs/phase9_probe_grammar.yaml
+  speaker: configs/phase9_probe_speaker.yaml
+  recall: configs/phase9_probe_recall.yaml
+integrate:
+  n_facts: 100
+  n_unknown: 50
+  threshold: 0.4          # recall run 3, 100 facts
+  show_wrong: 6

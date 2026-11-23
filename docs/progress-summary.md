@@ -18,6 +18,7 @@ fly. Every number below is from held-out test seeds unless noted. The details ar
 | Zumi 2 | talk about anything: the fly learns facts during the conversation | **pass** up to 80 things (rate) and 40 (spiking). Without the KC layer the same rule fails at 40 |
 | Phase 7 | the fly says its own Zumi replies, word by word ("GPT-2 level in Zumi") | 7a pass; **7b–7f gates not passed**. Closed by the user. Results below |
 | Phase 8 | a subset of Toki Pona (112 content words): eight flies hold a whole conversation | **pass** (8h-4), closed by the user. Hypotheses H1–H6 supported. Results below |
+| Phase 9 | a Toki Pona chatbot over real sentences (Tatoeba) | feasibility probes done (ADR 0014): routing glue removed by chained binding, end to end 0.992 on selection seeds; plan waits for approval |
 
 ## Phase 7 in one table (7f, test seeds 70–74)
 

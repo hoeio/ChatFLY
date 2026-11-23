@@ -82,5 +82,10 @@ Each phase must pass its acceptance criteria before the next one begins. If it d
   - Remaining glue is listed in ADR 0013, "Phase 8 closed".
 
 
+## Phase 9 — a Toki Pona chatbot (added at the user's request, 2026-11-23)
+
+- Goal (ADR 0014): a chatbot made of flies that talks about any real Toki Pona sentence (Tatoeba), without the Phase 8 predicate routing
+- **Feasibility probes (selection seeds, done 2026-11-23):** reference grammar 98.1% of Tatoeba; chained-key memory 0.994 vs union 0.35; grammar fly 1.000 on real clauses; speaker 0.996; end to end 0.992. Risks: spiking noise, capacity at 300 facts (0.94)
+- **9a–9f:** plan and gates proposed in ADR 0014, waiting for the user's approval
 
 The mushroom body is a circuit designed to learn through a small number of trials, so transition-table learning itself (four transitions) is expected to be cheap. The time-consuming parts will be **hyperparameter tuning, achieving reliability, and long-sequence evaluation**. Always estimate simulation time before running.

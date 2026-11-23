@@ -28,6 +28,7 @@ from chatfly.speak import exp_speak_baselines, exp_speak_fly
 from chatfly.talk import exp_talk
 from chatfly.toki_probe import (
     exp_probe9_grammar,
+    exp_probe9_integrate,
     exp_probe9_memory,
     exp_probe9_recall,
     exp_probe9_speaker,
@@ -114,7 +115,8 @@ EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning, "parity": e
                "speak_fly": exp_speak_fly, "grammar": exp_grammar, "talk": exp_talk, "zumi3": exp_zumi3,
                "capacity": exp_capacity, "grammar8": exp_grammar8, "classfly": exp_classfly, "phrase_memory": exp_phrase_memory, "chat8d": exp_chat8d,
                "probe9_memory": exp_probe9_memory, "probe9_recall": exp_probe9_recall,
-               "probe9_grammar": exp_probe9_grammar, "probe9_speaker": exp_probe9_speaker}
+               "probe9_grammar": exp_probe9_grammar, "probe9_speaker": exp_probe9_speaker,
+               "probe9_integrate": exp_probe9_integrate}
 
 
 def main(argv=None) -> Path:

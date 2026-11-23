@@ -104,3 +104,12 @@ The eLife pages were bot-blocked, so these were read on PMC: Li et al. 2020 (htt
   - Wikisource lists the 2021 dictionary as CC0 (https://en.wikisource.org/wiki/Toki_Pona_Dictionary). Older sona pona revisions say CC BY 4.0.
   - Wikipedia says the 2014 English book was dedicated to the public domain in April 2026 (https://en.wikipedia.org/wiki/Toki_Pona).
   - **Unverified** on Lang's own site. We use only the word list and our own grammar generator, no text from the books.
+
+### 2026-11-23 (Phase 9): Toki Pona corpus and grammar (ADR 0014)
+
+- **Tatoeba (verified):** 80,461 Toki Pona sentences in the weekly export of 2026-11-23 (`data/README.md`); text license CC BY 2.0 FR (some CC0), per https://sona.pona.la/wiki/Tatoeba and https://en.wikipedia.org/wiki/Tatoeba . The wiki's "over 56,000 sentences" (March 2024) is older than our count.
+- **Measured on that file:** 95.8% of clauses use only nimi pu; median length 6–7 words; `la` 20%, `pi` 19%, `lon` 20%, `tawa` 22% of clauses (ADR 0014).
+- **Prepositions (verified, search summary of https://sona.pona.la/wiki/Prepositions):** kepeken, lon, sama, tan, tawa; all are also content words, so some sentences are ambiguous.
+- **Preverbs (verified, same source family, https://sona.pona.la/wiki/verb):** the core preverbs in *Toki Pona: The Language of Good* are awen, kama, ken, lukin, sona, wile; no particle marks them. Our grammar treats them as predicate words (no class of their own).
+- **`la` (verified, https://sona.pona.la/wiki/la):** what comes before `la` is context for the rest; a fronted `lon` phrase may drop `lon`; it can mark a condition.
+- **FlyWire ALPNs per side:** 139 uniglomerular + 201 multiglomerular = 340 (already recorded for ADR 0013 8a-2); Phase 9 uses a 300-PN key space at 10% (arbitrary, chosen on seed 10).

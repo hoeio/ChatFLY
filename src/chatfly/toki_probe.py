@@ -282,7 +282,9 @@ def _sjob(args):
             if w is None or w == END:
                 break
             out.append(w)
-            state = GRAMMAR[state].get(klass(w), "X")
+            state = GRAMMAR[state].get(klass(w))
+            if state is None:  # ungrammatical: the reply is wrong
+                break
             k += k < len(cues) and cues[k][1] == w
         return out
     facts = [f for f in (slots(CLAUSES[i]) for i in rng.permutation(len(CLAUSES))[:sp["n_test"] * 3]) if f][:sp["n_test"]]
@@ -306,4 +308,188 @@ def exp_probe9_speaker(cfg: dict, seed: int) -> dict:
                     for k in ("table", "tatoeba_sentences")} for st in sp["run"]}
     for st, v in summary.items():
         log.info("%s %s", st, v)
+    return {"rows": rows, "summary": summary}
+
+
+def _ijob(args):
+    """End to end on real clauses: the user tells facts and asks three kinds of question in Toki
+    Pona; every step is a fly except the rules named here (glue): roles read from the grammar fly's
+    states (toki.ROLE), the mi/sina swap, the reply plan (the question's slots with the answer put
+    in place of seme, or "mi sona ala"), and the cue pointer."""
+    from chatfly.toki import END, NAME, ROLE, Recall, klass, slots
+
+    cfg, seed = args
+    it, t0 = cfg["integrate"], time.time()
+    if not CLAUSES:
+        CLAUSES.extend(tatoeba_clauses())
+    # the flies, with the settings the probes chose (grammar: kc16000; speaker: kc32000; recall run 3)
+    gcfg = {**cfg, "grammar": {**cfg["grammar"], "n_test": 1}, "select_seeds": [seed]}
+    gfly, gx = _grammar_fly(gcfg, seed)
+    spk, sx = _speaker_fly(cfg, seed)
+    m = cfg["recall"]
+    od = Odors(cfg, seed, m["n_pn"], m["pn_active_frac"])
+    b = Binder(cfg, seed, od, m["binder"])
+    mem = Recall(cfg, seed, b, {**m["memory"], "n_pn": od.n_pn, "code": tuple(m["code"])}, CONTENT + [NAME])
+    swap = {"mi": "sina", "sina": "mi"}
+
+    def hear(words):
+        """The grammar fly's states -> slots (None = not understood)."""
+        s, st = "S0", []
+        for w in words + ["EOS"]:
+            s = gfly.read(gx(s, klass(w) if w != "EOS" else "EOS"))[0] or "X"
+            if s == "X":
+                return None
+            st.append(s)
+        r = [ROLE[x] for x in st[:-1]]
+        if words[0] in ("mi", "sina") and "li" not in r:
+            r[0] = "subj"
+        sl = {k: tuple(swap.get(w, w) for w, x in zip(words, r) if x == k and w != "a") for k in ("subj", "pred", "obj")}
+        return sl if sl["subj"] and sl["pred"] else None
+
+    def chain(*parts):
+        h = b.phrase(*parts[0])
+        for role, ws in parts[1:]:
+            h = b(h, b.phrase(role, ws))
+        return h
+    keys = {"obj": lambda s, p, o: chain(("subj", s), ("pred", p), ("q", ("e",))),
+            "pred": lambda s, p, o: chain(("subj", s), ("q", ("li",))),
+            "subj": lambda s, p, o: chain(("q", ("seme",)), ("pred", p), ("obj", o or ("-",)))}
+
+    def say(s_, p_, o_):
+        cues = [("subj", w) for w in s_] + [("pred", w) for w in p_] + [("obj", w) for w in o_]
+        state, k, out = "S0", 0, []
+        while len(out) < 16:
+            w = spk.read(sx(state, cues[k] if k < len(cues) else ("-", "-")))[0]
+            if w is None or w == END:
+                break
+            out.append(w)
+            from chatfly.toki import GRAMMAR
+            state = GRAMMAR[state].get(klass(w))
+            if state is None:
+                break
+            k += k < len(cues) and cues[k][1] == w
+        return out
+
+    rng = np.random.default_rng([seed, 9, 6])
+    facts, seen = [], set()
+    for i in rng.permutation(len(CLAUSES)):
+        c = CLAUSES[i]
+        f = slots(c)
+        if f and not f[3] and (f[0], f[1]) not in seen and (f[0], "li") not in seen and "NAME" not in c:
+            seen |= {(f[0], f[1]), (f[0], "li")}
+            facts.append(c)
+        if len(facts) == it["n_facts"] + it["n_unknown"]:
+            break
+    told, unknown = facts[:it["n_facts"]], facts[it["n_facts"]:]
+    heard = 0
+    for c in told:  # the user tells
+        sl = hear(c)
+        if sl:
+            heard += 1
+            s, p, o = sl["subj"], sl["pred"], sl["obj"]
+            for kind, ans in (("obj", o), ("pred", p), ("subj", s)):
+                mem.tell(keys[kind](s, p, o), ans, m["n_teach"])
+
+    def question(c, kind):
+        f = slots(c)
+        s, p, o = f[0], f[1], f[2]
+        bare = len(s) == 1 and s[0] in ("mi", "sina")
+        if kind == "obj":
+            return list(s) + ([] if bare else ["li"]) + list(p) + ["e", "seme"]
+        if kind == "pred":
+            return list(s) + ([] if bare else ["li"]) + ["seme"]
+        return ["seme", "li"] + list(p) + (["e", *o] if o else [])
+
+    def reply(q, kind):
+        sl = hear(q)
+        if sl is None:
+            return ["?"]
+        s, p, o = sl["subj"], sl["pred"], sl["obj"]
+        s, p, o = (s, p, o[:-1]) if kind == "obj" else (s, (), o) if kind == "pred" else ((), p, o)
+        ans = mem.ask(keys[kind](s, p, o), it["threshold"])
+        if ans is None:
+            return ["mi", "sona", "ala"]
+        return say(*{"obj": (s, p, ans), "pred": (s, ans, ()), "subj": (ans, p, o)}[kind])
+
+    def truth(c, kind):
+        s, p, o = (tuple(swap.get(w, w) for w in x) for x in slots(c)[:3])  # the bot's view
+        bare = len(s) == 1 and s[0] in ("mi", "sina")
+        o = () if kind == "pred" else o  # "S li seme?" is answered with the predicate only
+        return list(s) + ([] if bare else ["li"]) + list(p) + (["e", *o] if o else [])
+    good, n, by, wrong = 0, 0, {}, []
+    for c in told:
+        for kind in ("obj", "pred", "subj"):
+            if kind == "obj" and not slots(c)[2]:
+                continue
+            ok = reply(question(c, kind), kind) == truth(c, kind)
+            if kind == "subj" and not ok:  # several told subjects can be right
+                got = reply(question(c, kind), kind)
+                ok = any(got == truth(d, kind) for d in told if slots(d)[1:3] == slots(c)[1:3])
+            by.setdefault(kind, []).append(ok)
+            if not ok and len(wrong) < it["show_wrong"]:
+                wrong.append((kind, " ".join(question(c, kind)), " ".join(reply(question(c, kind), kind)), " ".join(truth(c, kind))))
+            good, n = good + ok, n + 1
+    unk = [reply(question(c, kind), kind) == ["mi", "sona", "ala"] for c in unknown for kind in ("obj", "pred")
+           if kind != "obj" or slots(c)[2]]
+    out = {"seed": seed, "heard": heard / len(told), "reply_exact": good / n, **{k: float(np.mean(v)) for k, v in by.items()},
+           "unknown_declined": float(np.mean(unk)), "s": round(time.time() - t0, 1)}
+    log.info("%s wrong: %s", out, wrong)
+    return out
+
+
+def _grammar_fly(cfg, seed):
+    from chatfly.toki import ACCEPT, CLASSES, GRAMMAR
+
+    g = cfg["grammar"]
+    f = {**g["settings"]["kc16000"], "n_pn": cfg["mb"]["n_pn"]}
+    od = Odors(cfg, seed + 500, cfg["mb"]["n_pn"], cfg["tokens"]["pn_active_frac"])
+    states = list(GRAMMAR)
+    fly = Fly(cfg, seed, 3, states + ["X"], f)
+    table = [(s, c, GRAMMAR[s].get(c, "X")) for s in states for c in CLASSES]
+    table += [(s, "EOS", "S0" if s in ACCEPT else "X") for s in states]
+    def x(s, c):
+        return np.maximum(od("s", s), od("c", c))
+    rng = np.random.default_rng([seed, 9, 4])
+    for _ in range(g["epochs"]):
+        for i in rng.permutation(len(table)):
+            fly.teach(x(*table[i][:2]), table[i][2])
+    for _ in range(g["rehearse"]):
+        for i in rng.permutation(len(table)):
+            if fly.read(x(*table[i][:2]))[0] != table[i][2]:
+                fly.teach(x(*table[i][:2]), table[i][2])
+    return fly, x
+
+
+def _speaker_fly(cfg, seed):
+    from chatfly.toki import END, NAME
+
+    sp = cfg["speaker"]
+    words = CONTENT + [NAME]
+    f = {**sp["settings"]["kc32000"], "n_pn": cfg["mb"]["n_pn"], "code": tuple(sp["code"])}
+    od = Odors(cfg, seed + 700, cfg["mb"]["n_pn"], cfg["tokens"]["pn_active_frac"])
+    fly = Fly(cfg, seed, 4, words + ["li", "e", END], f)
+    tab = [(s, c, o) for s, c, o in say_table(words) if not (s == "MI" and c[1] in ("mi", "sina"))]
+    def x(s, c):
+        return np.maximum(od("s", s), od(*c))
+    rng = np.random.default_rng([seed, 9, 5])
+    order = np.repeat(np.arange(len(tab)), [sp["end_reps"] if o == END else 1 for _, _, o in tab])
+    for _ in range(sp["epochs"]):
+        for i in rng.permutation(order):
+            fly.teach(x(*tab[i][:2]), tab[i][2])
+    for _ in range(sp["rehearse"]):
+        for i in rng.permutation(len(tab)):
+            if fly.read(x(*tab[i][:2]))[0] != tab[i][2]:
+                fly.teach(x(*tab[i][:2]), tab[i][2])
+    return fly, x
+
+
+def exp_probe9_integrate(cfg: dict, seed: int) -> dict:
+    cfg = with_base(cfg)
+    for part in ("grammar", "speaker", "recall"):  # the settings each probe chose
+        cfg[part] = yaml.safe_load((Path(__file__).resolve().parents[2] / cfg["parts"][part]).read_text())[part]
+    with ProcessPoolExecutor(cfg["workers"]) as ex:
+        rows = list(ex.map(_ijob, [(cfg, s) for s in cfg["select_seeds"]]))
+    summary = {k: [round(float(np.mean([r[k] for r in rows])), 3), round(float(np.min([r[k] for r in rows])), 3)]
+               for k in rows[0] if k not in ("seed", "s")}
+    log.info("summary %s", summary)
     return {"rows": rows, "summary": summary}

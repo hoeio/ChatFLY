@@ -2,7 +2,7 @@
 # from (grammar state, slot-tagged cue), taught from its table (8a-3 balance, 8f rehearsal), and
 # speaks the slots of real Tatoeba clauses (sentence exact). Selection seeds only.
 experiment: probe9_speaker
-base: configs/phase6_zumi.yaml
+base: configs/phase9_base.yaml
 seed: 0
 select_seeds: [10, 11, 12, 13, 14]
 workers: 10

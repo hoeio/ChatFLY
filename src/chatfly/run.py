@@ -21,11 +21,9 @@ import yaml
 from chatfly.chat import exp_chat
 from chatfly.conditioning import exp_conditioning, token_patterns
 from chatfly.fsm import exp_fsm_sweep, exp_multi_fly
-from chatfly.grammar import exp_grammar
 from chatfly.parity import exp_parity, exp_parity_table
 from chatfly.sim import SIMULATORS
-from chatfly.speak import exp_speak_baselines, exp_speak_fly
-from chatfly.talk import exp_talk
+from chatfly.toki_bot import exp_corpus9
 from chatfly.toki_probe import (
     exp_probe9_grammar,
     exp_probe9_integrate,
@@ -33,10 +31,6 @@ from chatfly.toki_probe import (
     exp_probe9_recall,
     exp_probe9_speaker,
 )
-from chatfly.tokipona import exp_capacity, exp_classfly, exp_grammar8, exp_phrase_memory
-from chatfly.tokipona_chat import exp_chat8d
-from chatfly.zumi import exp_zumi, exp_zumi_memory
-from chatfly.zumi3 import exp_zumi3
 
 ROOT = Path(__file__).resolve().parents[2]
 log = logging.getLogger("chatfly")
@@ -110,13 +104,10 @@ def exp_bench(cfg: dict, seed: int) -> dict:
 
 EXPERIMENTS = {"bench": exp_bench, "conditioning": exp_conditioning, "parity": exp_parity,
                "parity_table": exp_parity_table, "fsm_sweep": exp_fsm_sweep,
-               "multi_fly": exp_multi_fly, "chat": exp_chat, "zumi": exp_zumi,
-               "zumi_memory": exp_zumi_memory, "speak_baselines": exp_speak_baselines,
-               "speak_fly": exp_speak_fly, "grammar": exp_grammar, "talk": exp_talk, "zumi3": exp_zumi3,
-               "capacity": exp_capacity, "grammar8": exp_grammar8, "classfly": exp_classfly, "phrase_memory": exp_phrase_memory, "chat8d": exp_chat8d,
-               "probe9_memory": exp_probe9_memory, "probe9_recall": exp_probe9_recall,
-               "probe9_grammar": exp_probe9_grammar, "probe9_speaker": exp_probe9_speaker,
-               "probe9_integrate": exp_probe9_integrate}
+               "multi_fly": exp_multi_fly, "chat": exp_chat, "probe9_memory": exp_probe9_memory,
+               "probe9_recall": exp_probe9_recall, "probe9_grammar": exp_probe9_grammar,
+               "probe9_speaker": exp_probe9_speaker, "probe9_integrate": exp_probe9_integrate,
+               "corpus9": exp_corpus9}
 
 
 def main(argv=None) -> Path:

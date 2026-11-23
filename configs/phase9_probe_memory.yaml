@@ -1,7 +1,7 @@
 # Phase 9 probe (ADR 0014): a memory for any (subject phrase, predicate phrase) without routing.
 # Selection seeds only. Methods: 8i's union smell; chained binding (toki.Binder) and its controls.
 experiment: probe9_memory
-base: configs/phase6_zumi.yaml
+base: configs/phase9_base.yaml
 seed: 0
 select_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 workers: 10

@@ -7,7 +7,7 @@
 # Run 3: binary KC drive (robust to small rate changes); noisy = Poisson spike counts over a
 # window 4 presentations long (2 s).
 experiment: probe9_recall
-base: configs/phase6_zumi.yaml
+base: configs/phase9_base.yaml
 seed: 0
 select_seeds: [10, 11, 12, 13, 14]
 workers: 10

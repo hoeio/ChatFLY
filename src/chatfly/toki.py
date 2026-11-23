@@ -15,8 +15,9 @@ import numpy as np
 
 from chatfly.fsm import PNDirect, group_rates
 from chatfly.sim import SIMULATORS
-from chatfly.tokipona import PU
 
+# the 120 nimi pu, as https://sona.pona.la/wiki/nimi_pu prints them (CC BY-SA 4.0; docs/04-research-notes.md)
+PU = ["a", "akesi", "ala", "alasa", "ale", "anpa", "ante", "anu", "awen", "e", "en", "esun", "ijo", "ike", "ilo", "insa", "jaki", "jan", "jelo", "jo", "kala", "kalama", "kama", "kasi", "ken", "kepeken", "kili", "kiwen", "ko", "kon", "kule", "kulupu", "kute", "la", "lape", "laso", "lawa", "len", "lete", "li", "lili", "linja", "lipu", "loje", "lon", "luka", "lukin", "lupa", "ma", "mama", "mani", "meli", "mi", "mije", "moku", "moli", "monsi", "mu", "mun", "musi", "mute", "nanpa", "nasa", "nasin", "nena", "ni", "nimi", "noka", "o", "olin", "ona", "open", "pakala", "pali", "palisa", "pan", "pana", "pi", "pilin", "pimeja", "pini", "pipi", "poka", "poki", "pona", "pu", "sama", "seli", "selo", "seme", "sewi", "sijelo", "sike", "sin", "sina", "sinpin", "sitelen", "sona", "soweli", "suli", "suno", "supa", "suwi", "tan", "taso", "tawa", "telo", "tenpo", "toki", "tomo", "tu", "unpa", "uta", "utala", "walo", "wan", "waso", "wawa", "weka", "wile"]
 PREPS = ("lon", "tawa", "tan", "kepeken", "sama")
 PARTS = ("li", "e", "la", "pi", "o", "en", "anu", "a")
 CLASSES = ("B", "W", "P", *PARTS)

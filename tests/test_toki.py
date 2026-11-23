@@ -15,7 +15,7 @@ def test_grammar_roles():
 
 
 def test_binder_is_deterministic_and_order_sensitive():
-    cfg = yaml.safe_load(Path("configs/phase6_zumi.yaml").read_text())
+    cfg = yaml.safe_load(Path("configs/phase9_base.yaml").read_text())
     od = Odors(cfg, 1, 300, 0.1)
     b = Binder(cfg, 1, od, {"n_kc": 4000, "kc_theta": 650, "fan_out": 30, "signed": True, "weighted": False})
     k = b.phrase("subj", ("jan", "pona"))

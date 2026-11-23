@@ -1,0 +1,10 @@
+# Phase 9a (ADR 0014): conversations from real Tatoeba clauses; the reference oracle must answer
+# every turn acceptably (gate: 1.0 on every seed). Proportions are arbitrary.
+experiment: corpus9
+base: configs/phase9_base.yaml
+seed: 0
+seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+corpus:
+  n_pool: 400               # real facts per seed: half may be told, half are unknown things
+  n_turns: 300
+  p_turn: {tell: 0.28, retell: 0.04, change: 0.06, ask: 0.32, ask_unknown: 0.10, social: 0.12, salad: 0.08}

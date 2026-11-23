@@ -2,7 +2,7 @@
 # n_facts clauses; then asks, in Toki Pona, "S li P e seme?", "S li seme?" and "seme li P [e O]?"
 # about each, and the two first kinds about unknown clauses. Replies are spoken by the speaker fly.
 experiment: probe9_integrate
-base: configs/phase6_zumi.yaml
+base: configs/phase9_base.yaml
 seed: 0
 select_seeds: [10, 11, 12, 13, 14]
 workers: 5

@@ -1,6 +1,6 @@
 # 0014. Phase 9: a Toki Pona chatbot made of flies (feasibility research and plan)
 
-- Status: **Proposed** (feasibility probes done on selection seeds; the plan and its gates wait for the user's approval)
+- Status: **Accepted** (2026-11-23: the user accepted all gates and proposals, including deleting the Phase 6–8 modules after 9a and spiking as 9f, after the rate-model chatbot)
 - Date: 2026-11-23
 
 ## Context

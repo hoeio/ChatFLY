@@ -1,0 +1,16 @@
+# Phase 9 probe (ADR 0014): one grammar fly learns the 24-state reference grammar (toki.GRAMMAR)
+# from its table (every (state, class) once per epoch, then rehearsal), and is run on real
+# Tatoeba clauses: its states must equal the reference parse (also its rejections). Selection seeds.
+experiment: probe9_grammar
+base: configs/phase6_zumi.yaml
+seed: 0
+select_seeds: [10, 11, 12, 13, 14]
+workers: 10
+grammar:
+  epochs: 20
+  rehearse: 2
+  n_test: 3000
+  settings:
+    kc2000: {n_kc: 2000, kc_theta: 650}     # 8b's setting
+    kc16000: {n_kc: 16000, kc_theta: 850}
+  run: [kc2000, kc16000, kc16000_no_kc]

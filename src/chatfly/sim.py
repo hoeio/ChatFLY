@@ -161,7 +161,10 @@ class Simulator(ABC):
             elig = kc_rates >= self.kc_active_hz
         else:  # graded: proportional to the KC rate, saturating at elig_ref_hz (ADR 0005)
             elig = np.clip(kc_rates / self.elig_ref_hz, 0.0, 1.0) * (kc_rates >= self.kc_active_hz)
-        dopamine_rule(self.w, elig, dan, self.w0, self.eta_dep, self.eta_rec)
+        on = np.flatnonzero(elig)  # the rule only changes weights of active KCs: update those
+        sub = self.w[:, on]
+        dopamine_rule(sub, np.asarray(elig, float)[on], dan, self.w0, self.eta_dep, self.eta_rec)
+        self.w[:, on] = sub
 
     @abstractmethod
     def _run(self, pn_rates_hz, duration_ms, reset) -> dict[str, np.ndarray]: ...

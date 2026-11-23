@@ -1,0 +1,18 @@
+# Phase 9 probe (ADR 0014): one speaker fly says `S li P [e O]` replies over the whole vocabulary
+# from (grammar state, slot-tagged cue), taught from its table (8a-3 balance, 8f rehearsal), and
+# speaks the slots of real Tatoeba clauses (sentence exact). Selection seeds only.
+experiment: probe9_speaker
+base: configs/phase6_zumi.yaml
+seed: 0
+select_seeds: [10, 11, 12, 13, 14]
+workers: 10
+speaker:
+  epochs: 10
+  rehearse: 2
+  end_reps: 20
+  n_test: 500
+  code: [2, 20]
+  settings:
+    kc16000: {n_kc: 16000, kc_theta: 850}   # 8a-3's setting
+    kc32000: {n_kc: 32000, kc_theta: 850}
+  run: [kc16000, kc32000, kc32000_no_kc]

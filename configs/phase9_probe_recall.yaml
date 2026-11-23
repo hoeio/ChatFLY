@@ -1,0 +1,25 @@
+# Phase 9 probe (ADR 0014): phrases recalled word by word through chained keys, facts from real
+# Tatoeba clauses ("S li P [e O]"). Three questions per fact: S li P e seme? / S li seme? /
+# seme li P [e O]? Unknown facts (other real clauses) must be declined. Selection seeds only.
+# Run 1 (results/20261123-181317_phase9_probe_recall_s0) used 150 PNs, an unsigned binder and the
+# (top - second) / top confidence: all failed; the fixes were found on seed 10 (ADR 0014).
+# Run 2 (results/20261123-184604_phase9_probe_recall_s0): rate-weighted binder; noisy failed.
+# Run 3: binary KC drive (robust to small rate changes); noisy = Poisson spike counts over a
+# window 4 presentations long (2 s).
+experiment: probe9_recall
+base: configs/phase6_zumi.yaml
+seed: 0
+select_seeds: [10, 11, 12, 13, 14]
+workers: 10
+recall:
+  n_facts: [100, 300]
+  n_unknown: 100
+  n_teach: 5
+  n_pn: 300                     # key space: FlyWire-sized PN layer (8a-2 used 340)
+  pn_active_frac: 0.10
+  code: [2, 20]                 # 8a's H1 code over 120 words + END
+  thresholds: [0.3, 0.4, 0.5, 0.6, 0.7]
+  variants: [k2n20, noisy, binder_no_kc]
+  memory: {n_kc: 64000, kc_theta: 650}
+  binder: {n_kc: 16000, kc_theta: 650, fan_out: 30, signed: true, weighted: false}
+  noisy_binder: {window: 4}

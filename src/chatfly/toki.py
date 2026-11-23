@@ -171,12 +171,18 @@ class Fly:
         return np.array([r[g].mean() for g in self.code])
 
     def read(self, x):
-        """(label or None, confidence = (top - second) / top)."""
-        s = self.scores(x)
+        """(label or None, confidence). Confidence = (mean rate of the label's groups - mean rate
+        of the other groups) / the label's mean: 0 for an untaught odor (all groups at w0), near 1
+        for a taught one. (top - second) / top fails for k-of-n codes, whose runner-up shares a group
+        with the winner (8g)."""
+        r = group_rates(self.sim, self.sim.present(x, self.dur)["mbon"])
+        s = np.array([r[g].mean() for g in self.code])
         o = np.sort(s)[::-1]
         if o[0] <= 0 or o[0] == o[1]:
             return None, 0.0
-        return self.labels[int(np.argmax(s))], float((o[0] - o[1]) / o[0])
+        i = int(np.argmax(s))
+        rest = np.delete(r, self.code[i])
+        return self.labels[i], float((s[i] - rest.mean()) / s[i])
 
 
 class Binder:
@@ -191,18 +197,94 @@ class Binder:
         rng = np.random.default_rng([seed, 9, 78])
         self.out = rng.integers(odors.n_pn, size=(b["n_kc"], b["fan_out"]))
         self.tie = rng.random(odors.n_pn) * 1e-3
+        # signed: half of each KC's fan-out excites, half inhibits, so every PN's expected drive is
+        # zero whatever KCs fire (no PN becomes popular along a chain)
+        self.signed = b.get("signed", False)
+        self.sign = np.where(np.arange(b["fan_out"]) % 2 == 0, 1.0, -1.0)
         self.dur, self.thr = c["protocol"]["duration_ms"], cfg["readout"]["kc_active_hz"]
+        self.noise = np.random.default_rng([seed, 9, 79]) if b.get("poisson") else None
+        self.window = b.get("window", 1.0)
+        self.weighted = b.get("weighted", True)  # False: an active KC drives its targets by 1 (robust to small rate changes)
+        # fixed per-PN gain: 1 / the PN's mean drive over random odor pairs, so no PN is in more
+        # keys than others (without it, popular PNs feed forward along a chain: measured bias 2.4x)
+        self.gain = np.ones(odors.n_pn)
+        if b.get("calibrate", 0):
+            cal = np.random.default_rng([seed, 9, 80])
+            def rand():
+                r = np.full(odors.n_pn, odors.off)
+                r[cal.choice(odors.n_pn, odors.k, replace=False)] = odors.on
+                return r
+            mean = np.mean([self._drive(rand(), rand()) for _ in range(b["calibrate"])], axis=0)
+            self.gain = 1.0 / np.maximum(mean, mean[mean > 0].min() if (mean > 0).any() else 1.0)
+
+    def _drive(self, x, y):
+        kc = self.sim.present(np.maximum(x, y), self.dur)["kc"]
+        on = kc >= self.thr  # each active KC drives its fan-out PNs in proportion to its rate
+        fo = self.out.shape[1]
+        w = np.repeat(kc[on] if self.weighted else np.ones(on.sum()), fo) * (np.tile(self.sign, on.sum()) if self.signed else 1.0)
+        return np.bincount(self.out[on].ravel(), w, minlength=self.od.n_pn)
 
     def __call__(self, x, y):
         u = np.maximum(x, y)
+        if self.noise is not None:  # spike-count noise on the input (one presentation window)
+            sec = self.dur / 1000.0 * self.window  # window: integration time in presentation lengths
+            u = self.noise.poisson(u * sec) / sec
         if self.control == "no_kc":
             return self.od.top(u, self.tie)
-        kc = self.sim.present(u, self.dur)["kc"] >= self.thr
-        drive = np.bincount(self.out[kc].ravel(), minlength=self.od.n_pn).astype(float)
-        return self.od.top(drive, self.tie)
+        return self.od.top(self._drive(u, u) * self.gain, self.tie)
 
     def phrase(self, role, words):
         h = self.od(role, words[0])
         for w in words[1:]:
             h = self(h, self.od(role, w))
         return h
+
+
+END = "#"
+
+
+def slots(words):
+    """Reference split of a parsed clause into slots (the teacher's view; the pipeline gets them
+    from the grammar fly's states). None unless it is one plain `S li P [e O]` / `mi P [e O]`."""
+    r = roles(words)
+    if r is not None:  # drop the interjection a
+        words, r = [w for w in words if w != "a"], [x for w, x in zip(words, r) if w != "a"]
+    if r is None or not words or "la" in r or "o" in r or "prep" in r or r.count("li") > 1 or r.count("e") > 1:
+        return None
+    if words[0] in ("mi", "sina") and "li" not in r:
+        r = ["subj"] + r[1:]
+    s = [w for w, x in zip(words, r) if x == "subj"]
+    p = [w for w, x in zip(words, r) if x == "pred"]
+    o = [w for w, x in zip(words, r) if x == "obj"]
+    if not s or not p or "ala" in s or "anu" in words or "seme" in words or "en" in words or "pi" in words:
+        return None
+    neg = "ala" in p
+    p = [w for w in p if w != "ala"]
+    return (tuple(s), tuple(p), tuple(o), neg) if p else None
+
+
+class Recall:
+    """Memory of phrases by chained keys: key -> first word, bind(key, word) -> next word, ... END.
+    One Fly over the content words + END; one Binder for keys and chains."""
+
+    def __init__(self, cfg, seed, binder, f, words, control=None):
+        self.b, self.od = binder, binder.od
+        self.fly = Fly(cfg, seed, 2, list(words) + [END], f, control)
+
+    def tell(self, key, phrase, times):
+        for w in list(phrase) + [END]:
+            self.fly.teach(key, w, times)
+            key = self.b(key, self.od("ans", w))
+
+    def ask(self, key, thr, max_len=6):
+        """The phrase, or None if any step is below the threshold (unknown)."""
+        out = []
+        while len(out) < max_len:
+            w, c = self.fly.read(key)
+            if w is None or c < thr:
+                return None
+            if w == END:
+                return tuple(out)
+            out.append(w)
+            key = self.b(key, self.od("ans", w))
+        return None

@@ -156,3 +156,24 @@ Each new rule is tried as a fly first, as the user asked in Phase 8.
 
 - The probes take minutes: the rate model with faster learning (`sim.Simulator.learn` updates only active KCs; same numbers, 2.7× faster).
 - Out of scope: words outside nimi pu (4% of real clauses), and inference ("soweli li moku" does not imply "soweli li lon"). The bot answers from what it was told, and says "mi sona ala" otherwise.
+
+## 9a result (2026-11-23): gate passed
+
+- **Core:** `toki.py` (grammar, `Odors`, `Fly`, `Binder`, `Recall`) and `toki_bot.py`:
+  - `Agent` runs a conversation from a parser, a memory and a speaker. The oracle uses the reference grammar, a dict and `render`; the bot will use the flies.
+  - The rules both share are the interface glue: slots from states, the mi/sina swap, the act and question-form rules, the keys per fact, the reply plan.
+  - **Question forms:**
+    - yes/no: `anu seme`, or `P ala P`;
+    - `seme` as the object, predicate, subject, a predicate modifier (`sina pilin seme?`), the object of a preposition (`lon seme?`), or the time context (`tenpo seme la`).
+  - **Other acts:** greetings, thanks, farewell, commands, not understood. Statements are answered `pona`, or `mi sona` when already known.
+  - **Persona:** five facts the teacher tells first, in the bot's own view (`mi pipi lili` last, so "sina seme?" gets it).
+- **Corpus** (`configs/phase9a_corpus.yaml`): 300 turns per seed. The turns are told facts, re-tellings, changes of mind, questions about told and unknown facts, social turns, and word salad or words outside nimi pu.
+  - The facts are real clauses (27,928 usable): one `li`, at most one `e`, one prepositional phrase and one time context, no names. Every question form of a fact must parse back to that form.
+  - Lost this way: `tawa ala tawa`-style questions, where the grammar reads the second `tawa` as a preposition, and facts whose `pi` is followed by one word.
+  - The acceptable replies come from the generator's own facts. Subject questions accept every subject told with that predicate and object.
+- **Gate:** the oracle scores **1.000 on all 10 seeds** (288–298 turns each). The probes reproduce exactly on the cleaned core (memory 0.994 / 1.000; grammar fly 1.000).
+- **Cleanup (approved):**
+  - removed `tokipona.py`, `tokipona_chat.py`, `talk.py`, `speak.py`, `zumi.py`, `zumi3.py`, `grammar.py`, their tests and the Phase 6–8 configs (in git history; last at `989abfb`);
+  - `configs/phase9_base.yaml` holds the mushroom-body parameters from `phase6_zumi.yaml`;
+  - `web.py` serves the Phase 5 demo until 9e.
+- **Note:** some real Tatoeba clauses have adult content (the corpus is unfiltered). The demo (9e) will need a word filter.

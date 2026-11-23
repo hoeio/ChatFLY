@@ -1,4 +1,4 @@
-# ChatFLY: progress summary (2026-11-15)
+# ChatFLY: progress summary (updated 2026-11-23)
 
 "The fly" is a digital fly: a computational model of the fly mushroom body (MB), not a living
 fly. Every number below is from held-out test seeds unless noted. The details are in
@@ -19,6 +19,20 @@ fly. Every number below is from held-out test seeds unless noted. The details ar
 | Phase 7 | the fly says its own Zumi replies, word by word ("GPT-2 level in Zumi") | 7a pass; **7b–7f gates not passed**. Closed by the user. Results below |
 | Phase 8 | a subset of Toki Pona (112 content words): eight flies hold a whole conversation | **pass** (8h-4), closed by the user. Hypotheses H1–H6 supported. Results below |
 | Phase 9 | a Toki Pona chatbot over real sentences (Tatoeba) | feasibility probes done (ADR 0014): routing glue removed by chained binding, end to end 0.992 on selection seeds; plan waits for approval |
+
+## Phase 9 status
+
+Goal (ADR 0014, accepted by the user 2026-11-23): a Toki Pona chatbot made of flies that talks about any real Toki Pona sentence (Tatoeba, CC BY 2.0 FR). Rate model first; spiking is 9f.
+
+| step | what | status |
+|---|---|---|
+| probes | grammar, memory without routing, phrase recall, speaker, end to end (selection seeds) | **done**: end to end 0.992 (min 0.987); spiking noise and capacity at 300 facts are open risks |
+| 9a | core refactor; conversation corpus from real clauses; reference oracle | **passed** (2026-11-23): oracle 1.000 on all 10 corpus seeds; Phase 6–8 code removed |
+| 9b | memory for every question form; capacity sweep | next |
+| 9c | dialogue acts and persona as flies | |
+| 9d | whole conversations, 300 turns, test seeds | |
+| 9e | chatbot demo (terminal, web) | |
+| 9f | spiking | |
 
 ## Phase 7 in one table (7f, test seeds 70–74)
 
@@ -104,10 +118,7 @@ In Phase 8:
 
 - Published demo (rate model in the browser; the fly speaks Zumi 3): https://claude.ai/artifact/5aDVbagQmhxcNkvmW1fdKt
 - Guidebook: https://claude.ai/artifact/LxR9CQSG3n6uf4cUb8EduG (also `docs/zumi-guide.md`)
-- Local demos:
-  - `python -m chatfly.web configs/phase7f_zumi3.yaml` (Zumi 3, rate);
-  - `python -m chatfly.web configs/phase6_zumi.yaml --sim spiking` (Zumi 2, spiking);
-  - `python -m chatfly.web configs/phase8h4_chat.yaml` (Toki Pona, 8h-4, rate). In the terminal: `python -m chatfly.tokipona_chat configs/phase8h4_chat.yaml`. The page lists the words this seed's flies know (`--seed N` picks another lexicon).
+- Local demos of Phases 6–8 (removed in Phase 9): check out commit `989abfb`, then e.g. `python -m chatfly.web configs/phase8h4_chat.yaml`.
 
 ## Open directions (not started)
 

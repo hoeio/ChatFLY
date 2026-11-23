@@ -1,0 +1,22 @@
+# Phase 9 probe (ADR 0014): a memory for any (subject phrase, predicate phrase) without routing.
+# Selection seeds only. Methods: 8i's union smell; chained binding (toki.Binder) and its controls.
+experiment: probe9_memory
+base: configs/phase6_zumi.yaml
+seed: 0
+select_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+workers: 10
+probe:
+  n_heads: 10
+  n_mods: 6
+  n_subj: 100           # known subjects (bare heads, 1 or 2 modifiers; shared words)
+  n_unknown: 40         # never-told subjects, built from the same words
+  n_pred: 10            # predicate phrases, half one word, half two
+  n_facts: 400
+  n_change: 40          # facts told again with the other polarity
+  n_teach: 5
+  thresholds: [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4]
+  methods: [union, union650, chain, chain_binder_no_kc, chain_memory_no_kc]
+  union: {n_kc: 64000, kc_theta: 850}          # 8i's best kind of setting, more KCs
+  union650: {n_kc: 64000, kc_theta: 650}
+  key_memory: {n_kc: 64000, kc_theta: 650}     # a key is one odor: 4 of 5 claws (chosen in a sweep on seed 10)
+  binder: {n_kc: 16000, kc_theta: 850, fan_out: 10}

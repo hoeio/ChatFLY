@@ -36,3 +36,14 @@ FlyWire published data: CC BY-NC 4.0 (non-commercial, attribution). Follow the c
 
 The work environment's network is allowlist-based, so FlyWire access may be blocked. If blocked, ask the user to provide the files.
 Phases 0–2 use synthetic connectivity, so they can start without this data.
+
+### Tatoeba Toki Pona sentences (Phase 9, ADR 0014; downloaded 2026-11-23)
+
+- Source: Tatoeba weekly per-language export, https://downloads.tatoeba.org/exports/per_language/tok/tok_sentences.tsv.bz2 (80,461 sentences; md5 of the .bz2: 2066b9a7c6d42c2fbc92da7d57e49eb3). Columns: id, language, text.
+- License: **CC BY 2.0 FR** for Tatoeba sentence text (https://sona.pona.la/wiki/Tatoeba; Tatoeba's download page; some sentences are CC0). Attribution: Tatoeba (https://tatoeba.org) and the sentence contributors. Not redistributed here.
+- Download:
+  ```bash
+  mkdir -p data/tatoeba && cd data/tatoeba
+  curl -LO https://downloads.tatoeba.org/exports/per_language/tok/tok_sentences.tsv.bz2 && bunzip2 -k tok_sentences.tsv.bz2
+  ```
+- Used as real Toki Pona text: grammar coverage, teaching sentences and test sentences.
